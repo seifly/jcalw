@@ -61,11 +61,10 @@ src/main/java/cn/seifly/jclaw/
 │   ├── ContextBuilder.java          #   分段式上下文构建
 │   ├── SessionSummarizer.java       #   会话摘要与上下文压缩
 │   ├── context/                     #   上下文分段模块（Identity/Bootstrap/Tools/Skills/Memory）
-│   ├── evolution/                   #   自我进化引擎（PromptOptimizer/FeedbackManager/MemoryEvolver）
-│   └── collaboration/               #   多 Agent 协同编排（7 种模式 + 工作流引擎）
+│   └── evolution/                   #   自我进化引擎（PromptOptimizer/FeedbackManager/MemoryEvolver）              
 ├── bus/                             # 消息总线（发布/订阅，入站/出站队列）
 ├── channels/                        # 消息通道适配器（7 种平台）
-├── cli/                             # 命令行接口（8 个命令）
+├── collaboration/                   # 多 Agent 协同编排（7 种模式 + 工作流引擎）
 ├── config/                          # 配置模型与加载（11 个配置类）
 ├── cron/                            # 定时任务引擎
 ├── heartbeat/                       # 心跳服务
@@ -262,7 +261,7 @@ jclaw 通过 **SecurityGuard** 提供多层安全防护：
 
 ### 🖥️ Web 控制台
 
-网关模式下，访问 `http://localhost:18791` 可使用 Web 控制台：
+网关模式下，访问 `http://localhost:18790` 可使用 Web 控制台：
 
 - 实时对话（支持 SSE 流式输出）
 - 会话管理与历史记录
@@ -287,16 +286,9 @@ jclaw 通过 **SecurityGuard** 提供多层安全防护：
 name: my-skill
 description: "我的自定义技能"
 ---
-
-# My Skill
-
-当用户要求执行某某任务时，按照以下步骤操作：
-1. ...
-2. ...
 ```
 
 - 支持从 workspace / global / builtin 三个目录加载
-- 支持从 GitHub 安装社区技能
 - 支持基于用户输入的**语义搜索匹配**，只注入相关技能
 - Agent 可通过 `skills` 工具自主创建、编辑和管理技能
 
@@ -348,16 +340,16 @@ java -jar target/jclaw-0.1.0.jar
 
 ### 🛣️ 技术栈
 
-| 组件 | 技术 |
-|------|------|
-| 语言 | Java 17 |
-| 构建 | Maven |
-| HTTP 客户端 | OkHttp 4.12 |
-| JSON 处理 | Jackson 2.17 |
-| 日志 | SLF4J + Logback |
-| 命令行 | JLine 3.25 |
-| 定时任务 | cron-utils 9.2 |
-| 环境变量 | dotenv-java 3.0 |
+| 组件 | 技术                        |
+|------|---------------------------|
+| 语言 | Java 17                   |
+| 构建 | Maven3                    |
+| HTTP 客户端 | OkHttp 4.12               |
+| JSON 处理 | Jackson 2.17              |
+| 日志 | SLF4J + Logback           |
+| 命令行 | JLine 3.25                |
+| 定时任务 | cron-utils 9.2            |
+| 环境变量 | dotenv-java 3.0           |
 | 测试 | JUnit 5.10 + Mockito 5.10 |
 
 ---
