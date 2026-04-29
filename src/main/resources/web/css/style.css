@@ -1625,6 +1625,42 @@ body {
     gap: 12px;
 }
 
+.wechat-login-panel {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 16px;
+    margin-top: 16px;
+    background: var(--bg-secondary);
+}
+
+.wechat-login-state {
+    color: var(--text-secondary);
+    font-size: 14px;
+    line-height: 1.5;
+    margin-bottom: 12px;
+}
+
+.wechat-qr-wrap {
+    display: flex;
+    justify-content: center;
+}
+
+.wechat-qr {
+    width: 220px;
+    height: 220px;
+    border-radius: 8px;
+    background: #fff;
+    padding: 10px;
+    border: 1px solid var(--border);
+}
+
+.wechat-qr-content {
+    min-height: 120px;
+    resize: vertical;
+    font-family: monospace;
+    font-size: 12px;
+}
+
 /* Loading */
 .loading {
     display: inline-block;

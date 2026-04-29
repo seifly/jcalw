@@ -7,6 +7,7 @@ class TinyClawConsole {
         this.allSessions = [];
         this.currentSessionPage = 1;
         this.authToken = localStorage.getItem('tinyclaw_token') || null;
+        this.wechatLoginPoller = null;
         this.init();
     }
 
@@ -1472,7 +1473,7 @@ class TinyClawConsole {
                 <div class="card" data-channel="${ch.name}">
                     <div class="card-header">
                         <span class="badge ${ch.enabled ? 'badge-success' : 'badge-disabled'}">
-                            ${ch.enabled ? 'Enabled' : 'Disabled'}
+                            ${ch.running ? 'Running' : (ch.enabled ? 'Enabled' : 'Disabled')}
                         </span>
                         <span class="card-title">${this.capitalize(ch.name)}</span>
                     </div>
@@ -1494,18 +1495,19 @@ class TinyClawConsole {
         try {
             const response = await this.authFetch(`/api/channels/${name}`);
             const channel = await response.json();
+            const isWechat = name === 'wechat';
 
             this.showModal(`Edit ${this.capitalize(name)}`, `
-                <div class="form-group">
+                <div class="form-group" ${isWechat ? 'style="display:none"' : ''}>
                     <label>Enabled</label>
                     <select class="form-control" id="modalEnabled">
-                        <option value="true" ${channel.enabled ? 'selected' : ''}>Yes</option>
-                        <option value="false" ${!channel.enabled ? 'selected' : ''}>No</option>
+                        <option value="true" ${channel.enabled || isWechat ? 'selected' : ''}>Yes</option>
+                        <option value="false" ${!channel.enabled && !isWechat ? 'selected' : ''}>No</option>
                     </select>
                 </div>
                 ${this.getChannelFields(name, channel)}
             `, async () => {
-                const data = { enabled: document.getElementById('modalEnabled').value === 'true' };
+                const data = { enabled: isWechat || document.getElementById('modalEnabled').value === 'true' };
                 this.collectChannelData(name, data);
                 
                 await this.authFetch(`/api/channels/${name}`, {
@@ -1513,8 +1515,18 @@ class TinyClawConsole {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(data)
                 });
+                if (isWechat) {
+                    this.startWechatLoginPolling();
+                    return false;
+                }
                 this.loadChannels();
             });
+            if (isWechat) {
+                document.getElementById('modalConfirm').textContent = 'Refresh QR';
+                this.startWechatLoginPolling();
+            } else {
+                document.getElementById('modalConfirm').textContent = 'Confirm';
+            }
         } catch (error) {
             console.error('Failed to load channel:', error);
         }
@@ -1540,6 +1552,21 @@ class TinyClawConsole {
                     <div class="form-group"><label>App ID</label><input class="form-control" id="modalAppId" value="${ch.appId || ''}"></div>
                     <div class="form-group"><label>App Secret</label><input class="form-control" id="modalAppSecret" value="${ch.appSecret || ''}"></div>
                 `;
+            case 'wechat':
+                return `
+                    <div class="form-group" style="display:none">
+                        <label>Poll Interval (ms)</label>
+                        <input class="form-control" id="modalPollIntervalMs" type="number" min="500" step="100" value="${ch.pollIntervalMs || 1000}">
+                    </div>
+                    <div class="form-group" style="display:none">
+                        <label>Login Timeout (seconds)</label>
+                        <input class="form-control" id="modalLoginTimeoutSeconds" type="number" min="30" step="10" value="${ch.loginTimeoutSeconds || 180}">
+                    </div>
+                    <div class="wechat-login-panel" id="wechatLoginPanel">
+                        <div class="wechat-login-state" id="wechatLoginState">Loading login status...</div>
+                        <div class="wechat-qr-wrap" id="wechatQrWrap"></div>
+                    </div>
+                `;
             default:
                 return '';
         }
@@ -1563,6 +1590,69 @@ class TinyClawConsole {
                 data.appId = document.getElementById('modalAppId').value;
                 data.appSecret = document.getElementById('modalAppSecret').value;
                 break;
+            case 'wechat':
+                data.pollIntervalMs = Number(document.getElementById('modalPollIntervalMs').value || 1000);
+                data.loginTimeoutSeconds = Number(document.getElementById('modalLoginTimeoutSeconds').value || 180);
+                break;
+        }
+    }
+
+    startWechatLoginPolling() {
+        this.stopWechatLoginPolling();
+        this.refreshWechatLoginStatus();
+        this.wechatLoginPoller = setInterval(() => this.refreshWechatLoginStatus(), 2000);
+    }
+
+    stopWechatLoginPolling() {
+        if (this.wechatLoginPoller) {
+            clearInterval(this.wechatLoginPoller);
+            this.wechatLoginPoller = null;
+        }
+    }
+
+    async refreshWechatLoginStatus() {
+        const stateEl = document.getElementById('wechatLoginState');
+        const qrWrap = document.getElementById('wechatQrWrap');
+        if (!stateEl || !qrWrap) {
+            this.stopWechatLoginPolling();
+            return;
+        }
+
+        try {
+            const response = await this.authFetch('/api/channels/wechat/login');
+            const status = await response.json();
+
+            if (status.loggedIn) {
+                stateEl.textContent = status.botId ? `Logged in: ${status.botId}` : 'Logged in';
+                qrWrap.innerHTML = '';
+                this.stopWechatLoginPolling();
+                setTimeout(() => {
+                    this.hideModal();
+                    this.loadChannels();
+                }, 600);
+                return;
+            }
+
+            const stateText = {
+                not_started: 'Starting WeChat login...',
+                waiting_scan: 'Scan this QR code with WeChat.',
+                expired: 'QR code expired. Restart the WeChat channel to refresh it.',
+                failed: 'Wechat login failed.',
+                stopped: 'Wechat channel stopped.',
+                unavailable: 'Wechat channel status is unavailable.'
+            }[status.state] || 'Waiting for WeChat login...';
+
+            stateEl.textContent = status.error ? `${stateText} ${status.error}` : stateText;
+            if (status.qrCodeImage) {
+                qrWrap.innerHTML = `<img class="wechat-qr" src="${status.qrCodeImage}" alt="Wechat login QR code">`;
+            } else if (status.qrCodeContent) {
+                qrWrap.innerHTML = `<textarea class="form-control wechat-qr-content" readonly>${this.escapeHtml(status.qrCodeContent)}</textarea>`;
+            } else {
+                qrWrap.innerHTML = '';
+            }
+        } catch (error) {
+            stateEl.textContent = 'Failed to load WeChat login status.';
+            qrWrap.innerHTML = '';
         }
     }
 
@@ -3176,14 +3266,21 @@ class TinyClawConsole {
         document.getElementById('modalBody').innerHTML = content;
         document.getElementById('modalConfirm').style.display = onConfirm ? 'block' : 'none';
         document.getElementById('modalConfirm').onclick = async () => {
-            if (onConfirm) await onConfirm();
+            if (onConfirm) {
+                const result = await onConfirm();
+                if (result === false) {
+                    return;
+                }
+            }
             this.hideModal();
         };
         document.getElementById('modal').classList.add('active');
     }
 
     hideModal() {
+        this.stopWechatLoginPolling();
         document.getElementById('modal').classList.remove('active');
+        document.getElementById('modalConfirm').textContent = 'Confirm';
     }
 
     // ==================== Helpers ====================

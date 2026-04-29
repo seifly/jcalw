@@ -1,5 +1,8 @@
 package cn.seifly.jclaw.web.controller;
 
+import cn.seifly.jclaw.channels.Channel;
+import cn.seifly.jclaw.channels.ChannelManager;
+import cn.seifly.jclaw.channels.WechatChannel;
 import cn.seifly.jclaw.config.ChannelsConfig;
 import cn.seifly.jclaw.config.Config;
 import cn.seifly.jclaw.logger.JClawLogger;
@@ -27,6 +30,9 @@ public class ChannelsController {
     
     @Autowired
     private Config config;
+
+    @Autowired(required = false)
+    private ChannelManager channelManager;
     
     /**
      * 获取所有通道的名称及启用状态列表
@@ -41,6 +47,7 @@ public class ChannelsController {
         addChannelInfo(channels, "telegram", cc.getTelegram().isEnabled());
         addChannelInfo(channels, "discord", cc.getDiscord().isEnabled());
         addChannelInfo(channels, "whatsapp", cc.getWhatsapp().isEnabled());
+        addChannelInfo(channels, "wechat", cc.getWechat().isEnabled());
         addChannelInfo(channels, "feishu", cc.getFeishu().isEnabled());
         addChannelInfo(channels, "dingtalk", cc.getDingtalk().isEnabled());
         addChannelInfo(channels, "qq", cc.getQq().isEnabled());
@@ -96,6 +103,47 @@ public class ChannelsController {
             return ResponseEntity.status(400).body(error);
         }
     }
+
+    /**
+     * 获取微信扫码登录状态。
+     */
+    @GetMapping("/wechat/login")
+    public ResponseEntity<Map<String, Object>> getWechatLoginStatus() {
+        Map<String, Object> status = new HashMap<>();
+        status.put("enabled", true);
+
+        if (channelManager == null) {
+            status.put("running", false);
+            status.put("loggedIn", false);
+            status.put("state", "unavailable");
+            status.put("error", "Channel manager unavailable");
+            return ResponseEntity.ok(status);
+        }
+
+        Channel channel = channelManager.getChannel("wechat").orElse(null);
+        if (channel == null) {
+            try {
+                channel = channelManager.ensureWechatChannel(config.getChannels().getWechat());
+            } catch (Exception e) {
+                status.put("running", false);
+                status.put("loggedIn", false);
+                status.put("state", "failed");
+                status.put("error", "启动微信通道失败: " + e.getMessage());
+                return ResponseEntity.ok(status);
+            }
+        }
+
+        if (channel instanceof WechatChannel wechatChannel) {
+            status.putAll(wechatChannel.getLoginStatus());
+            return ResponseEntity.ok(status);
+        }
+
+        status.put("running", false);
+        status.put("loggedIn", false);
+        status.put("state", "unavailable");
+        status.put("error", "微信通道不可用");
+        return ResponseEntity.ok(status);
+    }
     
     // ==================== 私有辅助方法 ====================
     
@@ -105,8 +153,19 @@ public class ChannelsController {
     private void addChannelInfo(List<Map<String, Object>> channels, String name, boolean enabled) {
         Map<String, Object> channel = new HashMap<>();
         channel.put("name", name);
-        channel.put("enabled", enabled);
+        boolean running = isChannelRunning(name);
+        channel.put("enabled", enabled || running);
+        channel.put("running", running);
         channels.add(channel);
+    }
+
+    private boolean isChannelRunning(String name) {
+        if (channelManager == null) {
+            return false;
+        }
+        return channelManager.getChannel(name)
+                .map(Channel::isRunning)
+                .orElse(false);
     }
     
     /**
@@ -136,6 +195,13 @@ public class ChannelsController {
                 detail.put("appId", cc.getFeishu().getAppId());
                 detail.put("appSecret", WebUtils.maskSecret(cc.getFeishu().getAppSecret()));
                 detail.put("allowFrom", cc.getFeishu().getAllowFrom());
+                yield detail;
+            }
+            case "wechat" -> {
+                detail.put("enabled", cc.getWechat().isEnabled());
+                detail.put("pollIntervalMs", cc.getWechat().getPollIntervalMs());
+                detail.put("loginTimeoutSeconds", cc.getWechat().getLoginTimeoutSeconds());
+                detail.put("allowFrom", cc.getWechat().getAllowFrom());
                 yield detail;
             }
             case "dingtalk" -> {
@@ -179,6 +245,7 @@ public class ChannelsController {
         return switch (name) {
             case "telegram" -> { updateTelegramConfig(cc, request); yield true; }
             case "discord" -> { updateDiscordConfig(cc, request); yield true; }
+            case "wechat" -> { updateWechatConfig(cc, request); yield true; }
             case "feishu" -> { updateFeishuConfig(cc, request); yield true; }
             case "dingtalk" -> { updateDingtalkConfig(cc, request); yield true; }
             case "qq" -> { updateQQConfig(cc, request); yield true; }
@@ -209,6 +276,19 @@ public class ChannelsController {
             if (!WebUtils.isSecretMasked(token)) {
                 cc.getDiscord().setToken(token);
             }
+        }
+    }
+
+    /** 更新微信配置：enabled、pollIntervalMs、loginTimeoutSeconds。 */
+    private void updateWechatConfig(ChannelsConfig cc, Map<String, Object> request) {
+        if (request.containsKey("enabled")) {
+            cc.getWechat().setEnabled((Boolean) request.get("enabled"));
+        }
+        if (request.containsKey("pollIntervalMs")) {
+            cc.getWechat().setPollIntervalMs(toInt(request.get("pollIntervalMs"), cc.getWechat().getPollIntervalMs()));
+        }
+        if (request.containsKey("loginTimeoutSeconds")) {
+            cc.getWechat().setLoginTimeoutSeconds(toInt(request.get("loginTimeoutSeconds"), cc.getWechat().getLoginTimeoutSeconds()));
         }
     }
     
@@ -258,5 +338,19 @@ public class ChannelsController {
                 cc.getQq().setAppSecret(appSecret);
             }
         }
+    }
+
+    private int toInt(Object value, int defaultValue) {
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        if (value instanceof String str && !str.isBlank()) {
+            try {
+                return Integer.parseInt(str);
+            } catch (NumberFormatException ignored) {
+                return defaultValue;
+            }
+        }
+        return defaultValue;
     }
 }

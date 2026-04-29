@@ -12,6 +12,7 @@ public class ChannelsConfig {
     private TelegramConfig telegram;
     private DiscordConfig discord;
     private WhatsAppConfig whatsapp;
+    private WechatConfig wechat;
     private FeishuConfig feishu;
     private DingTalkConfig dingtalk;
     private QQConfig qq;
@@ -21,6 +22,7 @@ public class ChannelsConfig {
         this.telegram = new TelegramConfig();
         this.discord = new DiscordConfig();
         this.whatsapp = new WhatsAppConfig();
+        this.wechat = new WechatConfig();
         this.feishu = new FeishuConfig();
         this.dingtalk = new DingTalkConfig();
         this.qq = new QQConfig();
@@ -50,6 +52,14 @@ public class ChannelsConfig {
     
     public void setWhatsapp(WhatsAppConfig whatsapp) {
         this.whatsapp = whatsapp;
+    }
+
+    public WechatConfig getWechat() {
+        return wechat;
+    }
+
+    public void setWechat(WechatConfig wechat) {
+        this.wechat = wechat;
     }
     
     public FeishuConfig getFeishu() {
@@ -263,6 +273,52 @@ public class ChannelsConfig {
             return allowFrom;
         }
         
+        public void setAllowFrom(List<String> allowFrom) {
+            this.allowFrom = allowFrom;
+        }
+    }
+
+    public static class WechatConfig {
+        private boolean enabled;
+        private int pollIntervalMs;
+        private int loginTimeoutSeconds;
+        private List<String> allowFrom;
+
+        public WechatConfig() {
+            this.enabled = false;
+            this.pollIntervalMs = 1000;
+            this.loginTimeoutSeconds = 180;
+            this.allowFrom = new ArrayList<>();
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public int getPollIntervalMs() {
+            return pollIntervalMs;
+        }
+
+        public void setPollIntervalMs(int pollIntervalMs) {
+            this.pollIntervalMs = pollIntervalMs;
+        }
+
+        public int getLoginTimeoutSeconds() {
+            return loginTimeoutSeconds;
+        }
+
+        public void setLoginTimeoutSeconds(int loginTimeoutSeconds) {
+            this.loginTimeoutSeconds = loginTimeoutSeconds;
+        }
+
+        public List<String> getAllowFrom() {
+            return allowFrom;
+        }
+
         public void setAllowFrom(List<String> allowFrom) {
             this.allowFrom = allowFrom;
         }
