@@ -126,7 +126,13 @@ public class HTTPProvider implements LLMProvider {
             validateResponse(response, model);
             return responseParser.parseStreamResponse(response.body().source(), callback);
         } catch (IOException e) {
-            throw new LLMException("执行请求失败", e);
+            logger.error("LLM 流式请求执行失败", Map.of(
+                    "model", model,
+                    "api_base", apiBase,
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ), e);
+            throw new LLMException("执行请求失败: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
         }
     }
     
@@ -192,7 +198,13 @@ public class HTTPProvider implements LLMProvider {
             
             return responseParser.parseResponse(responseBody);
         } catch (IOException e) {
-            throw new LLMException("执行请求失败", e);
+            logger.error("LLM 非流式请求执行失败", Map.of(
+                    "model", model,
+                    "api_base", apiBase,
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ), e);
+            throw new LLMException("执行请求失败: " + e.getClass().getSimpleName() + " - " + e.getMessage(), e);
         }
     }
     

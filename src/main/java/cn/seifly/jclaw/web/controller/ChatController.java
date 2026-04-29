@@ -62,7 +62,10 @@ public class ChatController {
             
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            logger.error("Agent processing error", Map.of("error", e.getMessage()));
+            logger.error("Agent 处理错误", Map.of(
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ), e);
             
             Map<String, Object> errorResult = new HashMap<>();
             errorResult.put("error", e.getMessage());
@@ -98,12 +101,18 @@ public class ChatController {
                 writeSSEDone(emitter);
                 emitter.complete();
             } catch (Exception e) {
-                logger.error("Chat stream error", Map.of("error", e.getMessage()));
+                logger.error("聊天流处理错误", Map.of(
+                        "error_type", e.getClass().getSimpleName(),
+                        "error_message", e.getMessage(),
+                        "session_id", sessionId
+                ), e);
                 try {
                     writeSSEError(emitter, e.getMessage());
                 } catch (IOException ioException) {
-                    logger.error("Failed to write error to SSE stream",
-                            Map.of("error", ioException.getMessage()));
+                    logger.error("写入 SSE 错误消息失败", Map.of(
+                            "error_type", ioException.getClass().getSimpleName(),
+                            "error_message", ioException.getMessage()
+                    ), ioException);
                 }
                 emitter.completeWithError(e);
             }
@@ -128,7 +137,10 @@ public class ChatController {
             
             return ResponseEntity.ok(result);
         } catch (Exception e) {
-            logger.error("Abort error", Map.of("error", e.getMessage()));
+            logger.error("中止聊天任务错误", Map.of(
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ), e);
             
             Map<String, Object> errorResult = new HashMap<>();
             errorResult.put("error", e.getMessage());
@@ -190,19 +202,28 @@ public class ChatController {
             try {
                 writeSSEJson(emitter, event);
             } catch (IOException e) {
-                logger.error("SSE write error", Map.of("error", e.getMessage()));
+                logger.error("写入 SSE 事件失败", Map.of(
+                        "error_type", e.getClass().getSimpleName(),
+                        "error_message", e.getMessage()
+                ), e);
             }
         };
 
         try {
             agentRuntime.processDirectStream(message, images, sessionId, enhancedCallback);
         } catch (Exception e) {
-            logger.error("Agent stream processing error", Map.of("error", e.getMessage()));
+            logger.error("Agent 流式处理错误", Map.of(
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage(),
+                    "session_id", sessionId
+            ), e);
             try {
-                writeSSEJson(emitter, StreamEvent.content("错误: " + e.getMessage()));
+                writeSSEJson(emitter, StreamEvent.content("错误: " + e.getClass().getSimpleName() + " - " + e.getMessage()));
             } catch (IOException ioException) {
-                logger.error("Failed to write error to SSE stream",
-                        Map.of("error", ioException.getMessage()));
+                logger.error("写入 SSE 错误消息失败", Map.of(
+                        "error_type", ioException.getClass().getSimpleName(),
+                        "error_message", ioException.getMessage()
+                ), ioException);
             }
         }
     }

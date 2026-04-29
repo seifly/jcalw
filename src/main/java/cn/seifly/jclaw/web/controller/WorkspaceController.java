@@ -149,9 +149,13 @@ public class WorkspaceController {
             }
             
         } catch (Exception e) {
-            logger.error("Workspace API error", Map.of("error", e.getMessage()));
+            logger.error("工作空间 API 错误（读取文件）", Map.of(
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage(),
+                    "file_name", fileName
+            ), e);
             Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put("error", e.getClass().getSimpleName() + " - " + e.getMessage());
             return ResponseEntity.status(500).body(error);
         }
     }
@@ -196,9 +200,13 @@ public class WorkspaceController {
             return ResponseEntity.ok(result);
             
         } catch (Exception e) {
-            logger.error("Workspace API error", Map.of("error", e.getMessage()));
+            logger.error("工作空间 API 错误（保存文件）", Map.of(
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage(),
+                    "file_name", fileName
+            ), e);
             Map<String, Object> error = new HashMap<>();
-            error.put("error", e.getMessage());
+            error.put("error", e.getClass().getSimpleName() + " - " + e.getMessage());
             return ResponseEntity.status(500).body(error);
         }
     }

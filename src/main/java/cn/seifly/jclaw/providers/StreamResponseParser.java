@@ -3,6 +3,7 @@ package cn.seifly.jclaw.providers;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cn.seifly.jclaw.logger.JClawLogger;
+import lombok.extern.slf4j.Slf4j;
 import okio.BufferedSource;
 
 import java.io.IOException;
@@ -18,6 +19,7 @@ import java.util.UUID;
  * 处理 SSE（Server-Sent Events）格式的流式数据，
  * 支持增量内容和工具调用的实时解析。
  */
+@Slf4j
 public class StreamResponseParser {
     
     private static final JClawLogger logger = JClawLogger.getLogger("provider");
@@ -108,14 +110,18 @@ public class StreamResponseParser {
                     }
                     
                 } catch (Exception e) {
-                    logger.error("Failed to parse stream chunk", Map.of(
-                            "error", e.getMessage(),
-                            "data", data.length() > 200 ? data.substring(0, 200) : data
-                    ));
+                    logger.error("解析流式数据块失败", Map.of(
+                            "error_type", e.getClass().getSimpleName(),
+                            "error_message", e.getMessage(),
+                            "data_preview", data.length() > 200 ? data.substring(0, 200) : data
+                    ), e);
                 }
             }
         } catch (IOException e) {
-            logger.error("Stream read error", Map.of("error", e.getMessage()));
+            logger.error("流式响应读取错误", Map.of(
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ), e);
             throw e;
         }
         
@@ -215,13 +221,16 @@ public class StreamResponseParser {
                         Map<String, Object> parsedArgs = objectMapper.readValue(rawArgs, Map.class);
                         toolCall.setArguments(parsedArgs);
                     } catch (Exception e) {
+                        log.warn("解析工具调用参数失败", e);
                         // 解析失败，保留原始字符串
                         Map<String, Object> args = new HashMap<>();
                         args.put("raw", rawArgs);
                         toolCall.setArguments(args);
-                        logger.warn("Failed to parse tool call arguments", Map.of(
-                                "error", e.getMessage(),
-                                "raw_args", rawArgs.length() > 100 ? rawArgs.substring(0, 100) : rawArgs
+                        logger.warn("解析工具调用参数失败", Map.of(
+                                "error_type", e.getClass().getSimpleName(),
+                                "error_message", e.getMessage(),
+                                "tool_name", toolCall.getName(),
+                                "raw_args_preview", rawArgs.length() > 100 ? rawArgs.substring(0, 100) : rawArgs
                         ));
                     }
                 }
