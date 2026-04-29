@@ -67,6 +67,7 @@ public class ChannelManager {
         initTelegramChannel(channelsConfig);
         initDiscordChannel(channelsConfig);
         initWhatsAppChannel(channelsConfig);
+        initWechatChannel(channelsConfig);
         initFeishuChannel(channelsConfig);
         initDingTalkChannel(channelsConfig);
         initQQChannel(channelsConfig);
@@ -122,6 +123,21 @@ public class ChannelManager {
                 logger.info("WhatsApp channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize WhatsApp channel", Map.of("error", e.getMessage()));
+            }
+        }
+    }
+
+    /**
+     * 初始化微信通道
+     */
+    private void initWechatChannel(ChannelsConfig channelsConfig) {
+        if (channelsConfig.getWechat().isEnabled()) {
+            try {
+                Channel wechat = new WechatChannel(channelsConfig.getWechat(), bus);
+                channels.put("wechat", wechat);
+                logger.info("Wechat channel enabled successfully");
+            } catch (Exception e) {
+                logger.error("Failed to initialize Wechat channel", Map.of("error", e.getMessage()));
             }
         }
     }
@@ -210,13 +226,7 @@ public class ChannelManager {
         // 为每个通道启动独立的出站调度线程，各通道消费者只消费自己通道的消息
         dispatchRunning = true;
         for (String channelName : channels.keySet()) {
-            Thread dispatchThread = new Thread(
-                () -> dispatchOutboundForChannel(channelName),
-                "channel-dispatcher-" + channelName
-            );
-            dispatchThread.setDaemon(true);
-            dispatchThread.start();
-            dispatchThreads.add(dispatchThread);
+            startDispatcherForChannel(channelName);
         }
         
         // 启动所有通道
@@ -357,6 +367,40 @@ public class ChannelManager {
      */
     public Optional<Channel> getChannel(String name) {
         return Optional.ofNullable(channels.get(name));
+    }
+
+    /**
+     * 按需启动微信通道。
+     *
+     * <p>微信 iLink 没有传统密钥配置，用户打开 Web 页面扫码时即可启动登录流程。</p>
+     */
+    public synchronized WechatChannel ensureWechatChannel(ChannelsConfig.WechatConfig wechatConfig) {
+        Channel existing = channels.get("wechat");
+        if (existing instanceof WechatChannel wechatChannel) {
+            if (!wechatChannel.isRunning()) {
+                wechatChannel.start();
+            }
+            return wechatChannel;
+        }
+
+        WechatChannel wechat = new WechatChannel(wechatConfig, bus);
+        channels.put("wechat", wechat);
+        if (dispatchRunning) {
+            startDispatcherForChannel("wechat");
+        }
+        wechat.start();
+        logger.info("Wechat channel started on demand");
+        return wechat;
+    }
+
+    private void startDispatcherForChannel(String channelName) {
+        Thread dispatchThread = new Thread(
+                () -> dispatchOutboundForChannel(channelName),
+                "channel-dispatcher-" + channelName
+        );
+        dispatchThread.setDaemon(true);
+        dispatchThread.start();
+        dispatchThreads.add(dispatchThread);
     }
     
     /**
