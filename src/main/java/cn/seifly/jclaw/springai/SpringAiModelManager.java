@@ -62,9 +62,10 @@ public class SpringAiModelManager {
     }
     
     private ChatModel createOpenAiChatModel(ModelConfig config) {
+        String baseUrl = normalizeBaseUrl(config.apiBase());
         OpenAiApi openAiApi = OpenAiApi.builder()
                 .apiKey(config.apiKey())
-                .baseUrl(config.apiBase())
+                .baseUrl(baseUrl)
                 .build();
         
         OpenAiChatOptions options = OpenAiChatOptions.builder()
@@ -87,4 +88,26 @@ public class SpringAiModelManager {
             String apiKey,
             String apiBase
     ) {}
+    
+    private String normalizeBaseUrl(String apiBase) {
+        if (apiBase == null || apiBase.isEmpty()) {
+            return apiBase;
+        }
+        
+        String normalized = apiBase.trim();
+        
+        if (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        
+        if (normalized.endsWith("/v1")) {
+            normalized = normalized.substring(0, normalized.length() - 3);
+        } else if (normalized.endsWith("/v1beta")) {
+            normalized = normalized.substring(0, normalized.length() - 7);
+        } else if (normalized.endsWith("/v4")) {
+            normalized = normalized.substring(0, normalized.length() - 3);
+        }
+        
+        return normalized;
+    }
 }

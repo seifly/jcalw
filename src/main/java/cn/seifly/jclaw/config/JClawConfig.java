@@ -248,6 +248,16 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
             feishu.setAppSecret(appSecret);
         }
         
+        String encryptKey = getProperty("jclaw.channels.feishu.encrypt-key");
+        if (encryptKey != null) {
+            feishu.setEncryptKey(encryptKey);
+        }
+        
+        String verificationToken = getProperty("jclaw.channels.feishu.verification-token");
+        if (verificationToken != null) {
+            feishu.setVerificationToken(verificationToken);
+        }
+        
         String connectionMode = getProperty("jclaw.channels.feishu.connection-mode");
         if (connectionMode != null) {
             feishu.setConnectionMode(connectionMode);
@@ -744,17 +754,14 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
         registry.addResourceHandler("/images/**")
                 .addResourceLocations("classpath:/web/images/");
         
-        registry.addResourceHandler("/index.html")
-                .addResourceLocations("classpath:/web/index.html");
-        
-        registry.addResourceHandler("/favicon.ico")
+        registry.addResourceHandler("/index.html", "/sw.js", "/favicon.ico")
                 .addResourceLocations("classpath:/web/");
         
         logger.info("Static resource handlers configured", Map.of(
             "css", "classpath:/web/css/",
             "js", "classpath:/web/js/",
             "images", "classpath:/web/images/",
-            "index.html", "classpath:/web/index.html"
+            "web", "classpath:/web/"
         ));
     }
     
@@ -765,9 +772,8 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
      */
     @Override
     public void addViewControllers(org.springframework.web.servlet.config.annotation.ViewControllerRegistry registry) {
-        registry.addViewController("/")
-                .setViewName("forward:/index.html");
+        registry.addRedirectViewController("/", "/index.html");
         
-        logger.info("View controller configured: / -> forward:/index.html");
+        logger.info("View controller configured: / -> redirect:/index.html");
     }
 }

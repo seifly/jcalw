@@ -11,6 +11,8 @@ import com.lark.oapi.service.im.v1.model.CreateMessageReq;
 import com.lark.oapi.service.im.v1.model.CreateMessageReqBody;
 import com.lark.oapi.service.im.v1.model.CreateMessageResp;
 import com.lark.oapi.service.im.v1.model.P2MessageReceiveV1;
+import com.lark.oapi.service.im.v1.model.P2MessageReactionCreatedV1;
+import com.lark.oapi.service.im.v1.model.P2MessageReactionDeletedV1;
 
 import cn.seifly.jclaw.bus.InboundMessage;
 import cn.seifly.jclaw.bus.MessageBus;
@@ -82,11 +84,29 @@ public class FeishuChannel extends BaseChannel {
                 .build();
         
         // 初始化事件处理器
-        this.eventHandler = EventDispatcher.newBuilder("", "")
+        // 从配置中获取 encryptKey 和 verificationToken，用于事件解密和验证
+        String encryptKey = config.getEncryptKey() != null ? config.getEncryptKey() : "";
+        String verificationToken = config.getVerificationToken() != null ? config.getVerificationToken() : "";
+        
+        this.eventHandler = EventDispatcher.newBuilder(encryptKey, verificationToken)
                 .onP2MessageReceiveV1(new ImService.P2MessageReceiveV1Handler() {
                     @Override
                     public void handle(P2MessageReceiveV1 event) throws Exception {
                         handleMessageReceive(event);
+                    }
+                })
+                .onP2MessageReactionCreatedV1(new ImService.P2MessageReactionCreatedV1Handler() {
+                    @Override
+                    public void handle(P2MessageReactionCreatedV1 event) throws Exception {
+                        // 忽略表情反应创建事件
+                        logger.debug("Received message reaction created event");
+                    }
+                })
+                .onP2MessageReactionDeletedV1(new ImService.P2MessageReactionDeletedV1Handler() {
+                    @Override
+                    public void handle(P2MessageReactionDeletedV1 event) throws Exception {
+                        // 忽略表情反应删除事件
+                        logger.debug("Received message reaction deleted event");
                     }
                 })
                 .build();

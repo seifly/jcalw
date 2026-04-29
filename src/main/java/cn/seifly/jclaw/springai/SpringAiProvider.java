@@ -53,7 +53,7 @@ public class SpringAiProvider implements LLMProvider {
         
         if (tools != null && !tools.isEmpty()) {
             List<ToolCallback> toolCallbacks = createToolCallbacks(tools);
-            spec = spec.tools(toolCallbacks);
+            spec = spec.toolCallbacks(toolCallbacks);
         }
         
         spec = applyOptions(spec, options);
@@ -78,7 +78,7 @@ public class SpringAiProvider implements LLMProvider {
         
         if (tools != null && !tools.isEmpty()) {
             List<ToolCallback> toolCallbacks = createToolCallbacks(tools);
-            spec = spec.tools(toolCallbacks);
+            spec = spec.toolCallbacks(toolCallbacks);
         }
         
         spec = applyOptions(spec, options);

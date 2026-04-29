@@ -92,6 +92,12 @@ public class ChannelsController {
         if (success) {
             WebUtils.saveConfig(config, logger);
             
+            // 动态启用/禁用通道
+            if (request.containsKey("enabled")) {
+                boolean enabled = (Boolean) request.get("enabled");
+                handleChannelEnableChange(name, enabled);
+            }
+            
             Map<String, Object> result = new HashMap<>();
             result.put("success", true);
             result.put("message", "Channel updated");
@@ -101,6 +107,54 @@ public class ChannelsController {
             Map<String, Object> error = new HashMap<>();
             error.put("error", "Update failed");
             return ResponseEntity.status(400).body(error);
+        }
+    }
+    
+    /**
+     * 处理通道启用状态变化
+     * 
+     * 当通过API更新通道的启用状态时，动态启动或停止通道。
+     * 
+     * @param name 通道名称
+     * @param enabled 新的启用状态
+     */
+    private void handleChannelEnableChange(String name, boolean enabled) {
+        if (channelManager == null) {
+            logger.warn("Channel manager not available, cannot dynamically start/stop channel", 
+                    Map.of("channel", name));
+            return;
+        }
+        
+        if (enabled) {
+            // 启用通道
+            channelManager.getChannel(name).ifPresent(channel -> {
+                if (!channel.isRunning()) {
+                    boolean started = channelManager.startChannel(name);
+                    if (started) {
+                        logger.info("Channel started dynamically", Map.of("channel", name));
+                    }
+                } else {
+                    logger.info("Channel is already running", Map.of("channel", name));
+                }
+            });
+            
+            // 如果通道不存在（应用启动时未启用），记录警告
+            if (channelManager.getChannel(name).isEmpty()) {
+                logger.warn("Channel not initialized, please restart the application to enable it", 
+                        Map.of("channel", name));
+            }
+        } else {
+            // 禁用通道
+            channelManager.getChannel(name).ifPresent(channel -> {
+                if (channel.isRunning()) {
+                    boolean stopped = channelManager.stopChannel(name);
+                    if (stopped) {
+                        logger.info("Channel stopped dynamically", Map.of("channel", name));
+                    }
+                } else {
+                    logger.info("Channel is not running", Map.of("channel", name));
+                }
+            });
         }
     }
 
