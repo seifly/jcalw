@@ -131,6 +131,13 @@ jclaw:
       enabled: false
       bridge-url: "ws://localhost:3001"
       allow-from: []
+
+    # 微信 iLink
+    wechat:
+      enabled: false
+      poll-interval-ms: 1000
+      login-timeout-seconds: 180
+      allow-from: []
     
     # 飞书
     feishu:

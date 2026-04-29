@@ -83,7 +83,8 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
             "provider", config.getAgent().getProvider() != null ? config.getAgent().getProvider() : "null",
             "dashscopeApiKey", config.getProviders().getDashscope() != null && config.getProviders().getDashscope().getApiKey() != null ? 
                 "set (" + config.getProviders().getDashscope().getApiKey().length() + " chars)" : "not set",
-            "feishuEnabled", config.getChannels().getFeishu().isEnabled()
+            "feishuEnabled", config.getChannels().getFeishu().isEnabled(),
+            "wechatEnabled", config.getChannels().getWechat().isEnabled()
         ));
     }
     
@@ -159,7 +160,29 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
         mergeTelegramConfig(channels.getTelegram());
         // Discord 配置
         mergeDiscordConfig(channels.getDiscord());
+        // 微信配置
+        mergeWechatConfig(channels.getWechat());
         // 其他通道...
+    }
+
+    /**
+     * 合并微信配置
+     */
+    private void mergeWechatConfig(ChannelsConfig.WechatConfig wechat) {
+        Boolean enabled = getProperty("jclaw.channels.wechat.enabled", Boolean.class);
+        if (enabled != null) {
+            wechat.setEnabled(enabled);
+        }
+
+        Integer pollIntervalMs = getProperty("jclaw.channels.wechat.poll-interval-ms", Integer.class);
+        if (pollIntervalMs != null) {
+            wechat.setPollIntervalMs(pollIntervalMs);
+        }
+
+        Integer loginTimeoutSeconds = getProperty("jclaw.channels.wechat.login-timeout-seconds", Integer.class);
+        if (loginTimeoutSeconds != null) {
+            wechat.setLoginTimeoutSeconds(loginTimeoutSeconds);
+        }
     }
     
     /**
