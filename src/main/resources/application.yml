@@ -6,6 +6,34 @@ spring:
   web:
     resources:
       static-locations: classpath:/web/
+  
+  # ============================================
+  # Spring AI 标准配置
+  # ============================================
+  # 配置优先级：
+  # 1. spring.ai.* 配置（Spring AI 标准）
+  # 2. jclaw.* 配置（向后兼容）
+  # ============================================
+  ai:
+    # OpenAI 配置
+    openai:
+      api-key: ${OPENAI_API_KEY:sk-580e8d5eff4d4fc1a880b655ddb475c4}
+      base-url: ${OPENAI_BASE_URL:https://api.deepseek.com}
+      chat:
+        options:
+          model: ${CHAT_MODEL:deepseek-chat}
+          temperature: 0.7
+          max-tokens: 16384
+    
+    # DashScope (阿里云通义千问) 配置
+    dashscope:
+      api-key: "${DASHSCOPE_API_KEY:sk-b7d7d9df83d84649886b8e140aa8c92b}"
+      base-url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+      chat:
+        options:
+          model: qwen3.6-plus
+          temperature: 0.7
+          max-tokens: 16384
 
 server:
   port: 18790
@@ -107,7 +135,7 @@ jclaw:
     
     # 阿里云 DashScope (通义千问)
     dashscope:
-      api-key: "sk-b7"
+      api-key: "sk-b7d7d9df83d84649886b8e140aa8c92b"
       api-base: "https://dashscope.aliyuncs.com/compatible-mode/v1"
 
   # ==========================================
@@ -142,8 +170,8 @@ jclaw:
     # 飞书
     feishu:
       enabled: true
-      app-id: "cli_a"
-      app-secret: "3t"
+      app-id: "cli_a909d1822ab89cb3"
+      app-secret: "3tW7iAzCMFP0NvSUTmRSafQO4QBkCUje"
       encrypt-key: "${FEISHU_ENCRYPT_KEY:}"
       verification-token: "${FEISHU_VERIFICATION_TOKEN:}"
       connection-mode: "websocket"

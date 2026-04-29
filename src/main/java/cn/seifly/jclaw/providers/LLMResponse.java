@@ -20,6 +20,10 @@ public class LLMResponse {
         this.finishReason = "stop";
     }
     
+    public static LLMResponse text(String content) {
+        return new LLMResponse(content);
+    }
+    
     // Getters and Setters
     public String getContent() {
         return content;

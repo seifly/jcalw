@@ -36,6 +36,18 @@ public class ToolDefinition {
         this.function = function;
     }
     
+    public String getName() {
+        return function != null ? function.getName() : null;
+    }
+    
+    public String getDescription() {
+        return function != null ? function.getDescription() : null;
+    }
+    
+    public Map<String, Object> getParameters() {
+        return function != null ? function.getParameters() : null;
+    }
+    
     /**
      * Tool function definition
      */

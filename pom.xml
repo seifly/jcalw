@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.5</version>
+        <version>3.5.11</version>
         <relativePath/>
     </parent>
 
@@ -29,9 +29,9 @@
         <maven.compiler.source>17</maven.compiler.source>
         <maven.compiler.target>17</maven.compiler.target>
         <okhttp.version>4.12.0</okhttp.version>
-        <logback.version>1.5.0</logback.version>
         <jline.version>3.25.0</jline.version>
         <junit.version>5.10.0</junit.version>
+        <spring-ai.version>1.1.4</spring-ai.version>
     </properties>
 
     <dependencies>
@@ -76,18 +76,6 @@
             <version>${okhttp.version}</version>
         </dependency>
 
-        <!-- Logging -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-api</artifactId>
-            <version>2.0.11</version>
-        </dependency>
-        <dependency>
-            <groupId>ch.qos.logback</groupId>
-            <artifactId>logback-classic</artifactId>
-            <version>${logback.version}</version>
-        </dependency>
-
         <!-- Command Line Interaction -->
         <dependency>
             <groupId>org.jline</groupId>
@@ -123,6 +111,20 @@
             <groupId>io.github.cdimascio</groupId>
             <artifactId>dotenv-java</artifactId>
             <version>3.0.0</version>
+        </dependency>
+
+        <!-- Spring AI Core -->
+        <!--<dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-core</artifactId>
+            <version>${spring-ai.version}</version>
+        </dependency>-->
+
+        <!-- Spring AI OpenAI -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
+            <version>${spring-ai.version}</version>
         </dependency>
         <dependency>
             <groupId>com.larksuite.oapi</groupId>
@@ -168,6 +170,25 @@
             <scope>provided</scope>
         </dependency>-->
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>spring-releases</id>
+            <name>Spring Releases</name>
+            <url>https://repo.spring.io/release</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
 
     <build>
         <plugins>

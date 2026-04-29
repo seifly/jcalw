@@ -12,6 +12,7 @@ public class Message {
     private List<String> images;  // 图片路径列表，支持多模态
     private List<ToolCall> toolCalls;
     private String toolCallId;
+    private String toolName;
     
     public Message() {
     }
@@ -69,6 +70,14 @@ public class Message {
         this.toolCallId = toolCallId;
     }
     
+    public String getToolName() {
+        return toolName;
+    }
+    
+    public void setToolName(String toolName) {
+        this.toolName = toolName;
+    }
+    
     // Builder 方法
     public static Message system(String content) {
         return new Message("system", content);
@@ -94,6 +103,13 @@ public class Message {
     public static Message tool(String toolCallId, String content) {
         Message msg = new Message("tool", content);
         msg.setToolCallId(toolCallId);
+        return msg;
+    }
+    
+    public static Message tool(String toolCallId, String toolName, String content) {
+        Message msg = new Message("tool", content);
+        msg.setToolCallId(toolCallId);
+        msg.setToolName(toolName);
         return msg;
     }
 }

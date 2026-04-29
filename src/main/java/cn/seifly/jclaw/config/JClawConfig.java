@@ -1,6 +1,5 @@
 package cn.seifly.jclaw.config;
 
-import cn.seifly.jclaw.providers.HTTPProvider;
 import cn.seifly.jclaw.agent.AgentRuntime;
 import cn.seifly.jclaw.bus.MessageBus;
 import cn.seifly.jclaw.channels.ChannelManager;
@@ -10,10 +9,14 @@ import cn.seifly.jclaw.providers.LLMProvider;
 import cn.seifly.jclaw.security.SecurityGuard;
 import cn.seifly.jclaw.session.SessionManager;
 import cn.seifly.jclaw.skills.SkillsLoader;
+import cn.seifly.jclaw.springai.SpringAiProvider;
+import cn.seifly.jclaw.springai.SpringAiModelManager;
+import cn.seifly.jclaw.springai.SpringAiProviderFactory;
+import cn.seifly.jclaw.springai.ToolAdapter;
 import cn.seifly.jclaw.tools.*;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-//import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +44,6 @@ import java.util.concurrent.Executors;
  */
 @Configuration
 @EnableConfigurationProperties(JClawProperties.class)
-//@Slf4j
 public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     
     private static final JClawLogger logger = JClawLogger.getLogger("config");
@@ -54,6 +56,15 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     private ChannelManager channelManager;
     private CronService cronService;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+    
+    @Autowired
+    private SpringAiModelManager springAiModelManager;
+    
+    @Autowired
+    private ToolAdapter toolAdapter;
+    
+    @Autowired(required = false)
+    private SpringAiProviderFactory springAiProviderFactory;
     
     @Override
     public void setEnvironment(Environment environment) {
@@ -99,6 +110,23 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
             "feishuEnabled", config.getChannels().getFeishu().isEnabled(),
             "wechatEnabled", config.getChannels().getWechat().isEnabled()
         ));
+        
+        initializeSpringAiModels();
+    }
+    
+    private void initializeSpringAiModels() {
+        if (springAiProviderFactory != null) {
+            try {
+                springAiProviderFactory.initializeFromConfig(config);
+                logger.info("Spring AI models initialized from config");
+            } catch (Exception e) {
+                logger.warn("Failed to initialize Spring AI models", Map.of(
+                    "error", e.getMessage()
+                ));
+            }
+        } else {
+            logger.warn("SpringAiProviderFactory not available, falling back to HTTPProvider");
+        }
     }
     
     /**
@@ -653,12 +681,34 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     /**
      * 创建 LLM Provider
      * 
-     * 这是一个简化的版本，用于在 Spring Boot 上下文中创建 Provider。
+     * 优先使用 Spring AI 实现，如果不可用则回退到 HTTPProvider。
      * 
      * @param config 配置对象
      * @return LLMProvider 实例
      */
     private LLMProvider createProvider(Config config) {
+        if (springAiProviderFactory != null) {
+            String defaultModel = config.getAgent().getModel();
+            if (springAiProviderFactory.hasModel(defaultModel)) {
+                try {
+                    SpringAiProvider provider = springAiProviderFactory.createDefaultProvider();
+                    logger.info("Created Spring AI provider", Map.of(
+                            "model", defaultModel,
+                            "provider", provider.getName()
+                    ));
+                    return provider;
+                } catch (Exception e) {
+                    logger.warn("Failed to create Spring AI provider, falling back to HTTPProvider", Map.of(
+                            "error", e.getMessage()
+                    ));
+                }
+            } else {
+                logger.warn("Model not registered in Spring AI, falling back to HTTPProvider", Map.of(
+                        "model", defaultModel
+                ));
+            }
+        }
+        
         return config.getProviders().getFirstValidProvider()
                 .map(providerConfig -> {
                     String providerName = config.getProviders().getProviderName(providerConfig);
@@ -666,7 +716,7 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
                     if (apiBase == null || apiBase.isEmpty()) {
                         apiBase = ProvidersConfig.getDefaultApiBase(providerName);
                     }
-                    return new HTTPProvider(
+                    return new cn.seifly.jclaw.providers.HTTPProvider(
                             providerConfig.getApiKey(), 
                             apiBase
                     );
