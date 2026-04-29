@@ -60,15 +60,22 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
      * 
      * 配置优先级：
      * 1. application.yml 中的 jclaw.* 配置（最高优先级）
-     * 2. 默认配置（最低优先级）
+     * 2. .env 文件
+     * 3. ~/.jclaw/config.json 配置
+     * 4. 默认配置（最低优先级）
      */
     @PostConstruct
-    public void init() {
-        config = Config.defaultConfig();
-        logger.info("Using default configuration", Map.of(
-            "workspace", config.getAgent().getWorkspace(),
-            "model", config.getAgent().getModel()
-        ));
+    public void init(){
+        try {
+            config = ConfigLoader.load();
+            logger.info("Loaded configuration from config.json", Map.of(
+                    "workspace", config.getWorkspacePath(),
+                    "model", config.getAgent().getModel()
+            ));
+        } catch (Exception e) {
+            logger.info("No config.json found, using defaults", Map.of("error", e.getMessage()));
+            config = Config.defaultConfig();
+        }
         
         if (environment != null) {
             // 打印所有读取到的配置（用于调试）
