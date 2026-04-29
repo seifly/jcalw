@@ -12,6 +12,7 @@ import cn.seifly.jclaw.skills.SkillsLoader;
 import cn.seifly.jclaw.tools.*;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -38,6 +39,7 @@ import java.util.concurrent.Executors;
  */
 @Configuration
 @EnableConfigurationProperties(JClawProperties.class)
+@Slf4j
 public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     
     private static final JClawLogger logger = JClawLogger.getLogger("config");
@@ -67,7 +69,8 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     @PostConstruct
     public void init(){
         try {
-            config = ConfigLoader.load();
+            //config = ConfigLoader.load();
+            config = Config.defaultConfig();
             logger.info("Loaded configuration from config.json", Map.of(
                     "workspace", config.getWorkspacePath(),
                     "model", config.getAgent().getModel()
@@ -129,7 +132,10 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
                 try {
                     agentRuntime.run();
                 } catch (Exception e) {
-                    logger.error("AgentRuntime loop error", Map.of("error", e.getMessage()));
+                    logger.error("AgentRuntime 消息循环错误", Map.of(
+                            "error_type", e.getClass().getSimpleName(),
+                            "error_message", e.getMessage()
+                    ), e);
                 }
             });
         }
@@ -407,7 +413,11 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
                     provider = createProvider(config);
                 }
             } catch (Exception e) {
-                logger.warn("LLM Provider not configured", Map.of("error", e.getMessage()));
+                log.error("LLM Provider 配置失败", e);
+                logger.warn("LLM Provider 配置失败", Map.of(
+                        "error_type", e.getClass().getSimpleName(),
+                        "error_message", e.getMessage()
+                ));
             }
             agentRuntime = new AgentRuntime(config, messageBus, provider);
             
@@ -502,7 +512,10 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
                 channelManager.stopAll();
                 logger.info("Channel manager stopped");
             } catch (Exception e) {
-                logger.error("Error stopping channel manager", Map.of("error", e.getMessage()));
+                logger.error("停止 Channel Manager 错误", Map.of(
+                        "error_type", e.getClass().getSimpleName(),
+                        "error_message", e.getMessage()
+                ), e);
             }
         }
         
@@ -511,7 +524,10 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
                 agentRuntime.stop();
                 logger.info("AgentRuntime stopped");
             } catch (Exception e) {
-                logger.error("Error stopping AgentRuntime", Map.of("error", e.getMessage()));
+                logger.error("停止 AgentRuntime 错误", Map.of(
+                        "error_type", e.getClass().getSimpleName(),
+                        "error_message", e.getMessage()
+                ), e);
             }
         }
         
