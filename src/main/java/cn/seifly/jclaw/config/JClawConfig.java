@@ -4,6 +4,7 @@ import cn.seifly.jclaw.providers.HTTPProvider;
 import cn.seifly.jclaw.agent.AgentRuntime;
 import cn.seifly.jclaw.bus.MessageBus;
 import cn.seifly.jclaw.channels.ChannelManager;
+import cn.seifly.jclaw.cron.CronService;
 import cn.seifly.jclaw.logger.JClawLogger;
 import cn.seifly.jclaw.providers.LLMProvider;
 import cn.seifly.jclaw.security.SecurityGuard;
@@ -12,7 +13,7 @@ import cn.seifly.jclaw.skills.SkillsLoader;
 import cn.seifly.jclaw.tools.*;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
-import lombok.extern.slf4j.Slf4j;
+//import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,6 +24,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import java.nio.file.Paths;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,7 +41,7 @@ import java.util.concurrent.Executors;
  */
 @Configuration
 @EnableConfigurationProperties(JClawProperties.class)
-@Slf4j
+//@Slf4j
 public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     
     private static final JClawLogger logger = JClawLogger.getLogger("config");
@@ -50,6 +52,7 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     private MessageBus messageBus;
     private AgentRuntime agentRuntime;
     private ChannelManager channelManager;
+    private CronService cronService;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     
     @Override
@@ -413,7 +416,7 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
                     provider = createProvider(config);
                 }
             } catch (Exception e) {
-                log.error("LLM Provider 配置失败", e);
+                logger.error("LLM Provider 配置失败", e);
                 logger.warn("LLM Provider 配置失败", Map.of(
                         "error_type", e.getClass().getSimpleName(),
                         "error_message", e.getMessage()
@@ -461,6 +464,74 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     @Bean
     public SessionManager sessionManager(AgentRuntime agentRuntime) {
         return agentRuntime.getSessionManager();
+    }
+    
+    /**
+     * 提供 CronService Bean
+     * 
+     * 创建定时任务服务实例，负责管理定时任务的调度和执行。
+     * 使用工作空间路径下的 cron/jobs.json 作为持久化存储。
+     * 
+     * @param config 配置对象
+     * @param agentRuntime AgentRuntime 实例（用于任务执行回调）
+     * @param messageBus 消息总线实例
+     * @return CronService 实例
+     */
+    @Bean
+    public CronService cronService(Config config, AgentRuntime agentRuntime, MessageBus messageBus) {
+        String workspacePath = config.getWorkspacePath();
+        String cronStorePath = Paths.get(workspacePath, "cron", "jobs.json").toString();
+        
+        CronService.JobHandler jobHandler = job -> {
+            String channel = job.getPayload().getChannel();
+            String to = job.getPayload().getTo();
+            String message = job.getPayload().getMessage();
+            
+            if (channel == null || channel.isEmpty()) {
+                channel = "cli";
+            }
+            if (to == null || to.isEmpty()) {
+                to = "direct";
+            }
+            
+            String sessionKey = "cron-" + job.getId();
+            agentRuntime.processDirectWithChannel(message, sessionKey, channel, to);
+            
+            logger.info("Cron job executed", Map.of(
+                    "job_id", job.getId(),
+                    "job_name", job.getName(),
+                    "channel", channel,
+                    "to", to
+            ));
+            
+            return "ok";
+        };
+        
+        this.cronService = new CronService(cronStorePath, jobHandler);
+        
+        logger.info("CronService created", Map.of(
+                "store_path", cronStorePath
+        ));
+        
+        CronTool.JobExecutor cronToolJobExecutor = (content, sessionKey, channel, chatId) -> {
+            agentRuntime.processDirectWithChannel(content, sessionKey, channel, chatId);
+            return "ok";
+        };
+        
+        CronTool cronTool = new CronTool(this.cronService, cronToolJobExecutor, messageBus);
+        agentRuntime.registerTool(cronTool);
+        
+        logger.info("CronTool registered with AgentRuntime", Map.of(
+                "tool_name", cronTool.name()
+        ));
+        
+        this.cronService.start();
+        
+        logger.info("CronService started", Map.of(
+                "scheduler", "quartz"
+        ));
+        
+        return this.cronService;
     }
     
     /**
@@ -525,6 +596,18 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
                 logger.info("AgentRuntime stopped");
             } catch (Exception e) {
                 logger.error("停止 AgentRuntime 错误", Map.of(
+                        "error_type", e.getClass().getSimpleName(),
+                        "error_message", e.getMessage()
+                ), e);
+            }
+        }
+        
+        if (cronService != null && cronService.isRunning()) {
+            try {
+                cronService.stop();
+                logger.info("CronService stopped");
+            } catch (Exception e) {
+                logger.error("停止 CronService 错误", Map.of(
                         "error_type", e.getClass().getSimpleName(),
                         "error_message", e.getMessage()
                 ), e);

@@ -3,7 +3,7 @@ package cn.seifly.jclaw.providers;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cn.seifly.jclaw.logger.JClawLogger;
-import lombok.extern.slf4j.Slf4j;
+//import lombok.extern.slf4j.Slf4j;
 import okio.BufferedSource;
 
 import java.io.IOException;
@@ -19,7 +19,7 @@ import java.util.UUID;
  * 处理 SSE（Server-Sent Events）格式的流式数据，
  * 支持增量内容和工具调用的实时解析。
  */
-@Slf4j
+//@Slf4j
 public class StreamResponseParser {
     
     private static final JClawLogger logger = JClawLogger.getLogger("provider");
@@ -221,7 +221,7 @@ public class StreamResponseParser {
                         Map<String, Object> parsedArgs = objectMapper.readValue(rawArgs, Map.class);
                         toolCall.setArguments(parsedArgs);
                     } catch (Exception e) {
-                        log.warn("解析工具调用参数失败", e);
+                        logger.error("解析工具调用参数失败", e);
                         // 解析失败，保留原始字符串
                         Map<String, Object> args = new HashMap<>();
                         args.put("raw", rawArgs);

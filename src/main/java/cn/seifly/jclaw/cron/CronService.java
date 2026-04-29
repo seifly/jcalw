@@ -7,6 +7,8 @@ import com.cronutils.model.time.ExecutionTime;
 import com.cronutils.parser.CronParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cn.seifly.jclaw.logger.JClawLogger;
+import org.quartz.*;
+import org.quartz.impl.StdSchedulerFactory;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -18,35 +20,39 @@ import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import static org.quartz.JobBuilder.newJob;
+import static org.quartz.SimpleScheduleBuilder.simpleSchedule;
+import static org.quartz.CronScheduleBuilder.cronSchedule;
+import static org.quartz.TriggerBuilder.newTrigger;
+
 /**
  * 定时服务，调度和执行定时任务。
  * 
  * 这是 jclaw 定时任务系统的核心服务，负责任务的调度、执行和状态管理。
+ * 现在使用 Quartz Scheduler 作为底层调度引擎，提供更可靠的调度能力。
  * 
  * 核心职责：
- * - 任务调度：解析 cron 表达式并计算下次执行时间
+ * - 任务调度：使用 Quartz 解析 cron 表达式并调度任务
  * - 任务存储：持久化任务配置和状态信息到文件系统
  * - 任务执行：按时触发任务执行回调
  * - 状态管理：跟踪任务的启用、禁用状态和执行历史
- * - 并发控制：使用读写锁确保线程安全
+ * - Misfire 处理：Quartz 内置的 misfire 处理机制，应对系统睡眠/关机
  * 
  * 技术实现：
- * - 使用 cron-utils 库解析和验证 cron 表达式
+ * - 使用 Quartz Scheduler 作为调度引擎
  * - 基于文件系统的 JSON 格式任务持久化
- * - 独立守护线程运行任务调度循环（1秒检查间隔）
  * - ReentrantReadWriteLock 保护共享数据结构
  * - SecureRandom 生成唯一任务标识符
  * 
- * 设计特点：
- * - 高可靠性：具备错误恢复和完整日志记录
- * - 可扩展性：支持自定义任务处理器
- * - 性能优化：在锁外执行任务，避免阻塞调度循环
- * - 易用性：简洁的 API 接口和清晰的状态反馈
- * 
  * 调度类型：
- * - AT：一次性任务，指定时间执行
- * - EVERY：周期性任务，按固定间隔执行
- * - CRON：cron 表达式任务，按复杂规则执行
+ * - AT：一次性任务，指定时间执行（使用 SimpleTrigger）
+ * - EVERY：周期性任务，按固定间隔执行（使用 SimpleTrigger）
+ * - CRON：cron 表达式任务，按复杂规则执行（使用 CronTrigger）
+ * 
+ * Misfire 策略：
+ * - AT：立即执行错过的任务（MISFIRE_INSTRUCTION_FIRE_NOW）
+ * - EVERY：立即执行错过的任务并按原计划继续（MISFIRE_INSTRUCTION_RESCHEDULE_NEXT_WITH_REMAINING_COUNT）
+ * - CRON：立即执行一次错过的任务（MISFIRE_INSTRUCTION_FIRE_ONCE_NOW）
  * 
  * 使用场景：
  * 1. 为 CronTool 提供底层调度支持
@@ -58,47 +64,34 @@ public class CronService {
     
     private static final JClawLogger logger = JClawLogger.getLogger("cron");
     private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();  // 复用实例，避免重复创建
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     
-    private static final long CHECK_INTERVAL_MS = 1000L;  // 任务检查间隔（毫秒）
-    private static final int ID_BYTE_LENGTH = 8;          // ID 字节长度
-    private static final String HEX_FORMAT = "%02x";      // 十六进制格式
+    private static final int ID_BYTE_LENGTH = 8;
+    private static final String HEX_FORMAT = "%02x";
     
-    private static final String STATUS_OK = "ok";         // 执行成功状态
-    private static final String STATUS_ERROR = "error";   // 执行失败状态
+    private static final String STATUS_OK = "ok";
+    private static final String STATUS_ERROR = "error";
     
-    private static final String THREAD_NAME = "cron-service";  // 调度线程名称
+    private static final long MAX_MISSED_TIME_MS = 24 * 60 * 60 * 1000L;
     
-    private final String storePath;                       // 存储文件路径
-    private CronStore store;                              // 任务存储对象
-    private JobHandler onJob;                             // 任务处理器
-    private final ReentrantReadWriteLock lock;            // 读写锁
-    private volatile boolean running;                     // 服务运行状态
-    private Thread runnerThread;                          // 调度线程
+    private static final String JOB_GROUP = "JCLAW_JOBS";
+    private static final String TRIGGER_GROUP = "JCLAW_TRIGGERS";
     
-    private final CronParser cronParser;                  // Cron 表达式解析器
+    private final String storePath;
+    private CronStore store;
+    private JobHandler onJob;
+    private final ReentrantReadWriteLock lock;
+    private volatile boolean running;
     
-    /**
-     * 任务处理器接口，定义任务执行逻辑。
-     */
+    private Scheduler scheduler;
+    
+    private final CronParser cronParser;
+    
     @FunctionalInterface
     public interface JobHandler {
-        /**
-         * 处理任务。
-         * 
-         * @param job 要执行的任务
-         * @return 执行结果
-         * @throws Exception 执行异常
-         */
         String handle(CronJob job) throws Exception;
     }
     
-    /**
-     * 构造定时服务。
-     * 
-     * @param storePath 任务存储文件路径
-     * @param onJob 任务处理器
-     */
     public CronService(String storePath, JobHandler onJob) {
         this.storePath = storePath;
         this.onJob = onJob;
@@ -110,20 +103,10 @@ public class CronService {
         loadStore();
     }
     
-    /**
-     * 构造定时服务（不指定任务处理器）。
-     * 
-     * @param storePath 任务存储文件路径
-     */
     public CronService(String storePath) {
         this(storePath, null);
     }
     
-    /**
-     * 启动定时服务。
-     * 
-     * 加载任务存储，重新计算所有任务的下次执行时间，启动调度线程。
-     */
     public void start() {
         lock.writeLock().lock();
         try {
@@ -132,25 +115,161 @@ public class CronService {
             }
             
             loadStore();
-            recomputeNextRuns();
-            saveStoreUnsafe();
             
-            running = true;
-            runnerThread = new Thread(this::runLoop, THREAD_NAME);
-            runnerThread.setDaemon(true);
-            runnerThread.start();
-            
-            logger.info("Cron service started");
+            try {
+                SchedulerFactory schedulerFactory = new StdSchedulerFactory();
+                scheduler = schedulerFactory.getScheduler();
+                
+                scheduleExistingJobs();
+                
+                scheduler.start();
+                running = true;
+                
+                logger.info("Cron service started (Quartz)", Map.of(
+                        "enabled_jobs", store.getJobs().stream().filter(CronJob::isEnabled).count()
+                ));
+            } catch (SchedulerException e) {
+                logger.error("Failed to start Quartz scheduler", Map.of(
+                        "error_type", e.getClass().getSimpleName(),
+                        "error_message", e.getMessage()
+                ), e);
+                throw new RuntimeException("Failed to start Quartz scheduler", e);
+            }
         } finally {
             lock.writeLock().unlock();
         }
     }
     
-    /**
-     * 停止定时服务。
-     * 
-     * 停止调度线程，不再执行新任务。
-     */
+    private void scheduleExistingJobs() throws SchedulerException {
+        long now = System.currentTimeMillis();
+        
+        for (CronJob job : store.getJobs()) {
+            if (!job.isEnabled()) {
+                continue;
+            }
+            
+            Long nextRun = job.getState().getNextRunAtMs();
+            if (nextRun == null) {
+                nextRun = computeNextRun(job.getSchedule(), now);
+                job.getState().setNextRunAtMs(nextRun);
+            }
+            
+            if (nextRun != null && nextRun < now) {
+                long missedTime = now - nextRun;
+                if (missedTime <= MAX_MISSED_TIME_MS) {
+                    logger.info("检测到错过的任务（将由 Quartz misfire 处理）", Map.of(
+                            "job_id", job.getId(),
+                            "job_name", job.getName(),
+                            "scheduled_at", formatTime(nextRun),
+                            "missed_ms", missedTime
+                    ));
+                } else {
+                    logger.warn("错过时间过长，跳过任务", Map.of(
+                            "job_id", job.getId(),
+                            "job_name", job.getName(),
+                            "scheduled_at", formatTime(nextRun),
+                            "missed_ms", missedTime,
+                            "max_allowed_ms", MAX_MISSED_TIME_MS
+                    ));
+                    if (CronSchedule.ScheduleKind.AT == job.getSchedule().getKind()) {
+                        if (job.isDeleteAfterRun()) {
+                            store.getJobs().remove(job);
+                        } else {
+                            job.setEnabled(false);
+                            job.getState().setNextRunAtMs(null);
+                        }
+                        continue;
+                    } else {
+                        nextRun = computeNextRun(job.getSchedule(), now);
+                        job.getState().setNextRunAtMs(nextRun);
+                    }
+                }
+            }
+            
+            if (job.isEnabled() && job.getState().getNextRunAtMs() != null) {
+                scheduleJobInQuartz(job);
+            }
+        }
+        
+        saveStoreUnsafe();
+    }
+    
+    private void scheduleJobInQuartz(CronJob job) throws SchedulerException {
+        JobKey jobKey = new JobKey(job.getId(), JOB_GROUP);
+        TriggerKey triggerKey = new TriggerKey(job.getId(), TRIGGER_GROUP);
+        
+        if (scheduler.checkExists(jobKey)) {
+            scheduler.deleteJob(jobKey);
+        }
+        
+        JobDataMap jobDataMap = new JobDataMap();
+        jobDataMap.put(QuartzJobDelegate.JOB_ID_KEY, job.getId());
+        jobDataMap.put(QuartzJobDelegate.CRON_SERVICE_KEY, this);
+        
+        JobDetail jobDetail = newJob(QuartzJobDelegate.class)
+                .withIdentity(jobKey)
+                .usingJobData(jobDataMap)
+                .storeDurably()
+                .build();
+        
+        Trigger trigger = buildTrigger(job, triggerKey);
+        
+        scheduler.scheduleJob(jobDetail, trigger);
+        
+        logger.debug("Scheduled job in Quartz", Map.of(
+                "job_id", job.getId(),
+                "job_name", job.getName(),
+                "next_run", formatTime(job.getState().getNextRunAtMs())
+        ));
+    }
+    
+    private Trigger buildTrigger(CronJob job, TriggerKey triggerKey) {
+        Long nextRunAtMs = job.getState().getNextRunAtMs();
+        Date startTime = nextRunAtMs != null ? new Date(nextRunAtMs) : new Date();
+        
+        return switch (job.getSchedule().getKind()) {
+            case AT -> buildAtTrigger(job, triggerKey, startTime);
+            case EVERY -> buildEveryTrigger(job, triggerKey, startTime);
+            case CRON -> buildCronTrigger(job, triggerKey);
+        };
+    }
+    
+    private Trigger buildAtTrigger(CronJob job, TriggerKey triggerKey, Date startTime) {
+        return newTrigger()
+                .withIdentity(triggerKey)
+                .startAt(startTime)
+                .withSchedule(simpleSchedule()
+                        .withMisfireHandlingInstructionFireNow())
+                .build();
+    }
+    
+    private Trigger buildEveryTrigger(CronJob job, TriggerKey triggerKey, Date startTime) {
+        long everyMs = job.getSchedule().getEveryMs() != null ? job.getSchedule().getEveryMs() : 60000L;
+        
+        return newTrigger()
+                .withIdentity(triggerKey)
+                .startAt(startTime)
+                .withSchedule(simpleSchedule()
+                        .withIntervalInMilliseconds(everyMs)
+                        .repeatForever()
+                        .withMisfireHandlingInstructionNextWithExistingCount())
+                .build();
+    }
+    
+    private Trigger buildCronTrigger(CronJob job, TriggerKey triggerKey) {
+        String cronExpr = job.getSchedule().getExpr();
+        if (cronExpr == null || cronExpr.isEmpty()) {
+            cronExpr = "0 0 * * * ?";
+        }
+        
+        return newTrigger()
+                .withIdentity(triggerKey)
+                .withSchedule(cronSchedule(cronExpr)
+                        .inTimeZone(TimeZone.getDefault())
+                        .withMisfireHandlingInstructionFireAndProceed())
+                .build();
+    }
+    
     public void stop() {
         lock.writeLock().lock();
         try {
@@ -159,8 +278,17 @@ public class CronService {
             }
             
             running = false;
-            if (runnerThread != null) {
-                runnerThread.interrupt();
+            
+            if (scheduler != null) {
+                try {
+                    scheduler.shutdown();
+                    logger.info("Quartz scheduler shutdown");
+                } catch (SchedulerException e) {
+                    logger.error("Error shutting down Quartz scheduler", Map.of(
+                            "error_type", e.getClass().getSimpleName(),
+                            "error_message", e.getMessage()
+                    ), e);
+                }
             }
             
             logger.info("Cron service stopped");
@@ -169,104 +297,49 @@ public class CronService {
         }
     }
     
-    /**
-     * 调度循环，定期检查到期任务。
-     * 
-     * 每秒检查一次，执行到期的任务。
-     */
-    private void runLoop() {
-        while (running) {
-            try {
-                Thread.sleep(CHECK_INTERVAL_MS);
-                checkJobs();
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                break;
-            } catch (Exception e) {
-                logger.error("Error in cron loop", Map.of("error", e.getMessage()));
-            }
-        }
-    }
-    
-    /**
-     * 检查并收集到期任务。
-     * 
-     * 扫描所有启用的任务，收集到期任务并清除其下次执行时间。
-     * 在锁外执行任务，避免长时间持有锁。
-     */
-    private void checkJobs() {
-        List<CronJob> dueJobs = collectDueJobs();
-        
-        for (CronJob job : dueJobs) {
-            executeJob(job);
-        }
-    }
-    
-    /**
-     * 收集到期的任务。
-     * 
-     * @return 到期任务列表
-     */
-    private List<CronJob> collectDueJobs() {
+    public void executeQuartzJob(String jobId) {
         lock.writeLock().lock();
         try {
-            if (!running) {
-                return List.of();
+            CronJob job = findJobById(jobId);
+            if (job == null) {
+                logger.warn("Job not found for execution", Map.of("job_id", jobId));
+                return;
             }
             
-            long now = System.currentTimeMillis();
-            List<CronJob> dueJobs = new ArrayList<>();
-            
-            for (CronJob job : store.getJobs()) {
-                if (isJobDue(job, now)) {
-                    dueJobs.add(job);
-                    job.getState().setNextRunAtMs(null);  // 清除下次运行时间，防止重复执行
-                }
+            if (!job.isEnabled()) {
+                logger.debug("Job is disabled, skipping execution", Map.of("job_id", jobId));
+                return;
             }
             
-            if (!dueJobs.isEmpty()) {
-                saveStoreUnsafe();
-            }
+            long startTime = System.currentTimeMillis();
+            String error = invokeJobHandler(job);
             
-            return dueJobs;
+            updateJobState(job, startTime, error);
+            
+            if (CronSchedule.ScheduleKind.AT == job.getSchedule().getKind()) {
+                unscheduleJob(jobId);
+            }
         } finally {
             lock.writeLock().unlock();
         }
     }
     
-    /**
-     * 检查任务是否到期。
-     * 
-     * @param job 任务对象
-     * @param now 当前时间戳
-     * @return 到期返回 true，否则返回 false
-     */
-    private boolean isJobDue(CronJob job, long now) {
-        return job.isEnabled() && 
-               job.getState().getNextRunAtMs() != null && 
-               job.getState().getNextRunAtMs() <= now;
+    private void unscheduleJob(String jobId) {
+        try {
+            JobKey jobKey = new JobKey(jobId, JOB_GROUP);
+            if (scheduler.checkExists(jobKey)) {
+                scheduler.deleteJob(jobKey);
+                logger.debug("Unscheduled job from Quartz", Map.of("job_id", jobId));
+            }
+        } catch (SchedulerException e) {
+            logger.error("Error unscheduling job", Map.of(
+                    "job_id", jobId,
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ), e);
+        }
     }
     
-    /**
-     * 执行单个任务。
-     * 
-     * 调用任务处理器执行任务，更新任务状态和下次执行时间。
-     * 
-     * @param job 要执行的任务
-     */
-    private void executeJob(CronJob job) {
-        long startTime = System.currentTimeMillis();
-        String error = invokeJobHandler(job);
-        
-        updateJobState(job, startTime, error);
-    }
-    
-    /**
-     * 调用任务处理器。
-     * 
-     * @param job 要执行的任务
-     * @return 错误信息，成功返回 null
-     */
     private String invokeJobHandler(CronJob job) {
         try {
             if (onJob != null) {
@@ -275,53 +348,37 @@ public class CronService {
             return null;
         } catch (Exception e) {
             String error = e.getMessage();
-            logger.error("Job execution failed", Map.of(
+            logger.error("任务执行失败", Map.of(
                     "job_id", job.getId(),
-                    "error", error
-            ));
+                    "job_name", job.getName(),
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", error
+            ), e);
             return error;
         }
     }
     
-    /**
-     * 更新任务状态。
-     * 
-     * @param job 任务对象
-     * @param startTime 开始执行时间
-     * @param error 错误信息，成功为 null
-     */
     private void updateJobState(CronJob job, long startTime, String error) {
-        lock.writeLock().lock();
-        try {
-            CronJob storeJob = findJobById(job.getId());
-            if (storeJob == null) {
-                return;
-            }
-            
-            storeJob.getState().setLastRunAtMs(startTime);
-            storeJob.setUpdatedAtMs(System.currentTimeMillis());
-            
-            if (error != null) {
-                storeJob.getState().setLastStatus(STATUS_ERROR);
-                storeJob.getState().setLastError(error);
-            } else {
-                storeJob.getState().setLastStatus(STATUS_OK);
-                storeJob.getState().setLastError(null);
-            }
-            
-            handlePostExecution(storeJob);
-            saveStoreUnsafe();
-        } finally {
-            lock.writeLock().unlock();
+        CronJob storeJob = findJobById(job.getId());
+        if (storeJob == null) {
+            return;
         }
+        
+        storeJob.getState().setLastRunAtMs(startTime);
+        storeJob.setUpdatedAtMs(System.currentTimeMillis());
+        
+        if (error != null) {
+            storeJob.getState().setLastStatus(STATUS_ERROR);
+            storeJob.getState().setLastError(error);
+        } else {
+            storeJob.getState().setLastStatus(STATUS_OK);
+            storeJob.getState().setLastError(null);
+        }
+        
+        handlePostExecution(storeJob);
+        saveStoreUnsafe();
     }
     
-    /**
-     * 根据 ID 查找任务。
-     * 
-     * @param jobId 任务 ID
-     * @return 任务对象，未找到返回 null
-     */
     private CronJob findJobById(String jobId) {
         for (CronJob j : store.getJobs()) {
             if (j.getId().equals(jobId)) {
@@ -331,11 +388,6 @@ public class CronService {
         return null;
     }
     
-    /**
-     * 处理任务执行后的逻辑。
-     * 
-     * @param job 任务对象
-     */
     private void handlePostExecution(CronJob job) {
         if (CronSchedule.ScheduleKind.AT == job.getSchedule().getKind()) {
             if (job.isDeleteAfterRun()) {
@@ -347,16 +399,33 @@ public class CronService {
         } else {
             Long nextRun = computeNextRun(job.getSchedule(), System.currentTimeMillis());
             job.getState().setNextRunAtMs(nextRun);
+            
+            try {
+                rescheduleJobInQuartz(job);
+            } catch (SchedulerException e) {
+                logger.error("Error rescheduling job", Map.of(
+                        "job_id", job.getId(),
+                        "error_type", e.getClass().getSimpleName(),
+                        "error_message", e.getMessage()
+                ), e);
+            }
         }
     }
     
-    /**
-     * 计算任务的下次执行时间。
-     * 
-     * @param schedule 调度配置
-     * @param nowMs 当前时间戳（毫秒）
-     * @return 下次执行时间戳（毫秒），无法计算返回 null
-     */
+    private void rescheduleJobInQuartz(CronJob job) throws SchedulerException {
+        TriggerKey triggerKey = new TriggerKey(job.getId(), TRIGGER_GROUP);
+        
+        if (scheduler.checkExists(triggerKey)) {
+            Trigger newTrigger = buildTrigger(job, triggerKey);
+            scheduler.rescheduleJob(triggerKey, newTrigger);
+            
+            logger.debug("Rescheduled job in Quartz", Map.of(
+                    "job_id", job.getId(),
+                    "next_run", formatTime(job.getState().getNextRunAtMs())
+            ));
+        }
+    }
+    
     private Long computeNextRun(CronSchedule schedule, long nowMs) {
         return switch (schedule.getKind()) {
             case AT -> computeAtNextRun(schedule, nowMs);
@@ -365,13 +434,6 @@ public class CronService {
         };
     }
     
-    /**
-     * 计算 AT 类型任务的下次执行时间。
-     * 
-     * @param schedule 调度配置
-     * @param nowMs 当前时间戳
-     * @return 下次执行时间戳，已过期返回 null
-     */
     private Long computeAtNextRun(CronSchedule schedule, long nowMs) {
         if (schedule.getAtMs() != null && schedule.getAtMs() > nowMs) {
             return schedule.getAtMs();
@@ -379,13 +441,6 @@ public class CronService {
         return null;
     }
     
-    /**
-     * 计算 EVERY 类型任务的下次执行时间。
-     * 
-     * @param schedule 调度配置
-     * @param nowMs 当前时间戳
-     * @return 下次执行时间戳，配置无效返回 null
-     */
     private Long computeEveryNextRun(CronSchedule schedule, long nowMs) {
         if (schedule.getEveryMs() == null || schedule.getEveryMs() <= 0) {
             return null;
@@ -393,13 +448,6 @@ public class CronService {
         return nowMs + schedule.getEveryMs();
     }
     
-    /**
-     * 计算 CRON 表达式任务的下次执行时间。
-     * 
-     * @param schedule 调度配置
-     * @param nowMs 当前时间戳
-     * @return 下次执行时间戳，解析失败返回 null
-     */
     private Long computeCronNextRun(CronSchedule schedule, long nowMs) {
         if (schedule.getExpr() == null || schedule.getExpr().isEmpty()) {
             return null;
@@ -417,29 +465,21 @@ public class CronService {
             return next.map(zonedDateTime -> zonedDateTime.toInstant().toEpochMilli())
                        .orElse(null);
         } catch (Exception e) {
-            logger.error("Failed to compute next run for cron expr", Map.of(
+            logger.error("计算 Cron 表达式下次执行时间失败", Map.of(
                     "expr", schedule.getExpr(),
-                    "error", e.getMessage()
-            ));
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ), e);
             return null;
         }
     }
     
-    /**
-     * 重新计算所有启用任务的下次执行时间。
-     */
-    private void recomputeNextRuns() {
-        long now = System.currentTimeMillis();
-        for (CronJob job : store.getJobs()) {
-            if (job.isEnabled()) {
-                job.getState().setNextRunAtMs(computeNextRun(job.getSchedule(), now));
-            }
-        }
+    private String formatTime(long timestamp) {
+        return Instant.ofEpochMilli(timestamp)
+                .atZone(ZoneId.systemDefault())
+                .toString();
     }
     
-    /**
-     * 从磁盘加载任务存储。
-     */
     private void loadStore() {
         store = new CronStore();
         
@@ -453,16 +493,18 @@ public class CronService {
                 }
             }
         } catch (Exception e) {
-            logger.warn("Failed to load cron store, using empty", Map.of("error", e.getMessage()));
+            logger.warn("加载定时任务存储失败，使用空存储", Map.of(
+                    "store_path", storePath,
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ));
+            logger.error("加载定时任务存储异常详情", Map.of(
+                    "store_path", storePath
+            ), e);
             store = new CronStore();
         }
     }
     
-    /**
-     * 保存任务存储到磁盘（不加锁）。
-     * 
-     * 调用此方法前必须已持有写锁。
-     */
     private void saveStoreUnsafe() {
         try {
             Path path = Paths.get(storePath);
@@ -470,20 +512,14 @@ public class CronService {
             String json = objectMapper.writerWithDefaultPrettyPrinter().writeValueAsString(store);
             Files.writeString(path, json);
         } catch (Exception e) {
-            logger.error("Failed to save cron store", Map.of("error", e.getMessage()));
+            logger.error("保存定时任务存储失败", Map.of(
+                    "store_path", storePath,
+                    "error_type", e.getClass().getSimpleName(),
+                    "error_message", e.getMessage()
+            ), e);
         }
     }
     
-    /**
-     * 添加新任务。
-     * 
-     * @param name 任务名称
-     * @param schedule 调度配置
-     * @param message 消息内容
-     * @param channel 目标通道
-     * @param to 目标接收者
-     * @return 创建的任务对象
-     */
     public CronJob addJob(String name, CronSchedule schedule, String message,
                           String channel, String to) {
         lock.writeLock().lock();
@@ -495,6 +531,18 @@ public class CronService {
             
             store.getJobs().add(job);
             saveStoreUnsafe();
+            
+            if (running && job.isEnabled()) {
+                try {
+                    scheduleJobInQuartz(job);
+                } catch (SchedulerException e) {
+                    logger.error("Error scheduling new job", Map.of(
+                            "job_id", job.getId(),
+                            "error_type", e.getClass().getSimpleName(),
+                            "error_message", e.getMessage()
+                    ), e);
+                }
+            }
             
             logger.info("Added cron job", Map.of(
                     "job_id", job.getId(),
@@ -508,18 +556,6 @@ public class CronService {
         }
     }
     
-    /**
-     * 创建任务对象。
-     * 
-     * @param name 任务名称
-     * @param schedule 调度配置
-     * @param message 消息内容
-     * @param channel 目标通道
-     * @param to 目标接收者
-     * @param now 当前时间戳
-     * @param deleteAfterRun 执行后是否删除
-     * @return 任务对象
-     */
     private CronJob createJob(String name, CronSchedule schedule, String message,
                              String channel, String to,
                              long now, boolean deleteAfterRun) {
@@ -536,12 +572,6 @@ public class CronService {
         return job;
     }
     
-    /**
-     * 删除任务。
-     * 
-     * @param jobId 任务 ID
-     * @return 删除成功返回 true，任务不存在返回 false
-     */
     public boolean removeJob(String jobId) {
         lock.writeLock().lock();
         try {
@@ -551,27 +581,19 @@ public class CronService {
         }
     }
     
-    /**
-     * 删除任务（不加锁）。
-     * 
-     * @param jobId 任务 ID
-     * @return 删除成功返回 true，任务不存在返回 false
-     */
     private boolean removeJobUnsafe(String jobId) {
+        if (running) {
+            unscheduleJob(jobId);
+        }
+        
         boolean removed = store.getJobs().removeIf(j -> j.getId().equals(jobId));
         if (removed) {
             saveStoreUnsafe();
+            logger.info("Removed cron job", Map.of("job_id", jobId));
         }
         return removed;
     }
     
-    /**
-     * 启用或禁用任务。
-     * 
-     * @param jobId 任务 ID
-     * @param enabled 启用状态
-     * @return 更新后的任务对象，任务不存在返回 null
-     */
     public CronJob enableJob(String jobId, boolean enabled) {
         lock.writeLock().lock();
         try {
@@ -580,28 +602,45 @@ public class CronService {
                 return null;
             }
             
+            boolean wasEnabled = job.isEnabled();
             job.setEnabled(enabled);
             job.setUpdatedAtMs(System.currentTimeMillis());
             
-            if (enabled) {
+            if (enabled && !wasEnabled) {
                 job.getState().setNextRunAtMs(computeNextRun(job.getSchedule(), System.currentTimeMillis()));
-            } else {
+                
+                if (running) {
+                    try {
+                        scheduleJobInQuartz(job);
+                    } catch (SchedulerException e) {
+                        logger.error("Error scheduling job after enable", Map.of(
+                                "job_id", jobId,
+                                "error_type", e.getClass().getSimpleName(),
+                                "error_message", e.getMessage()
+                        ), e);
+                    }
+                }
+            } else if (!enabled && wasEnabled) {
                 job.getState().setNextRunAtMs(null);
+                
+                if (running) {
+                    unscheduleJob(jobId);
+                }
             }
             
             saveStoreUnsafe();
+            
+            logger.info((enabled ? "Enabled" : "Disabled") + " cron job", Map.of(
+                    "job_id", jobId,
+                    "job_name", job.getName()
+            ));
+            
             return job;
         } finally {
             lock.writeLock().unlock();
         }
     }
     
-    /**
-     * 列出所有任务。
-     * 
-     * @param includeDisabled 是否包含禁用的任务
-     * @return 任务列表
-     */
     public List<CronJob> listJobs(boolean includeDisabled) {
         lock.readLock().lock();
         try {
@@ -617,11 +656,6 @@ public class CronService {
         }
     }
     
-    /**
-     * 获取服务状态。
-     * 
-     * @return 状态信息 Map
-     */
     public Map<String, Object> status() {
         lock.readLock().lock();
         try {
@@ -633,24 +667,17 @@ public class CronService {
             status.put("enabled", running);
             status.put("jobs", store.getJobs().size());
             status.put("enabled_jobs", enabledCount);
+            status.put("scheduler", "quartz");
             return status;
         } finally {
             lock.readLock().unlock();
         }
     }
     
-    /**
-     * 设置任务处理器。
-     * 
-     * @param handler 任务处理器
-     */
     public void setOnJob(JobHandler handler) {
         this.onJob = handler;
     }
     
-    /**
-     * 从磁盘重新加载存储。
-     */
     public void load() {
         lock.writeLock().lock();
         try {
@@ -660,13 +687,6 @@ public class CronService {
         }
     }
     
-    /**
-     * 生成唯一任务 ID。
-     * 
-     * 使用 SecureRandom 生成 8 字节随机数，转换为 16 位十六进制字符串。
-     * 
-     * @return 任务 ID
-     */
     private String generateId() {
         byte[] bytes = new byte[ID_BYTE_LENGTH];
         SECURE_RANDOM.nextBytes(bytes);
@@ -678,11 +698,6 @@ public class CronService {
         return sb.toString();
     }
     
-    /**
-     * 检查服务是否正在运行。
-     * 
-     * @return 运行中返回 true，否则返回 false
-     */
     public boolean isRunning() { 
         return running; 
     }
