@@ -28,6 +28,18 @@ public class WorkspaceController {
     
     private static final JClawLogger logger = JClawLogger.getLogger("web");
     
+    /** 预定义的工作空间文件列表及其描述 */
+    private static final Map<String, String> WORKSPACE_FILES_INFO = new HashMap<>();
+    
+    static {
+        WORKSPACE_FILES_INFO.put("AGENTS.md", "Agent 行为指令 - 定义 Agent 如何执行任务、协作规则和行为约束");
+        WORKSPACE_FILES_INFO.put("SOUL.md", "Agent 个性与价值观 - 定义 Agent 的性格特点、价值观和响应风格");
+        WORKSPACE_FILES_INFO.put("USER.md", "用户画像与偏好 - 记录用户的个人信息、使用习惯和偏好设置");
+        WORKSPACE_FILES_INFO.put("IDENTITY.md", "Agent 身份描述 - 定义 Agent 的基本身份、角色定位和专业领域");
+        WORKSPACE_FILES_INFO.put("PROFILE.md", "用户个人资料 - 详细的用户个人信息和背景资料");
+        WORKSPACE_FILES_INFO.put("HEARTBEAT.md", "心跳配置 - 定时任务和周期性行为的配置说明");
+    }
+    
     /** 预定义的工作空间文件列表 */
     private static final String[] WORKSPACE_FILES = {
         "AGENTS.md", "SOUL.md", "USER.md", "IDENTITY.md", "PROFILE.md", "HEARTBEAT.md"
@@ -60,6 +72,46 @@ public class WorkspaceController {
         }
         
         addMemoryFile(files, workspace);
+        
+        return ResponseEntity.ok(files);
+    }
+    
+    /**
+     * 获取所有预定义的工作空间文件信息（包括不存在的文件）
+     * 
+     * 返回所有预定义文件，无论文件是否存在。
+     * 
+     * @return 文件列表，包含 name、exists、size、lastModified、description
+     */
+    @GetMapping("/all")
+    public ResponseEntity<List<Map<String, Object>>> listAllWorkspaceFiles() {
+        String workspace = config.getWorkspacePath();
+        List<Map<String, Object>> files = new ArrayList<>();
+        
+        for (String fileName : WORKSPACE_FILES) {
+            Path filePath = Paths.get(workspace, fileName);
+            boolean exists = Files.exists(filePath);
+            
+            Map<String, Object> file = new HashMap<>();
+            file.put("name", fileName);
+            file.put("exists", exists);
+            file.put("description", WORKSPACE_FILES_INFO.getOrDefault(fileName, ""));
+            
+            if (exists) {
+                try {
+                    file.put("size", Files.size(filePath));
+                    file.put("lastModified", Files.getLastModifiedTime(filePath).toMillis());
+                } catch (Exception e) {
+                    file.put("size", 0);
+                    file.put("lastModified", 0);
+                }
+            } else {
+                file.put("size", 0);
+                file.put("lastModified", 0);
+            }
+            
+            files.add(file);
+        }
         
         return ResponseEntity.ok(files);
     }

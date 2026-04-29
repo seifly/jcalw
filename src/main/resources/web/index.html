@@ -64,6 +64,10 @@
                         <span class="nav-arrow">▾</span>
                     </div>
                     <div class="nav-group-items">
+                        <a href="#persona" class="nav-item" data-page="persona">
+                            <span class="nav-icon">👤</span>
+                            <span>Persona</span>
+                        </a>
                         <a href="#workspace" class="nav-item" data-page="workspace">
                             <span class="nav-icon">📁</span>
                             <span>Workspace</span>
@@ -222,6 +226,52 @@
                         <button class="btn btn-primary" id="addCronBtn">+ Add Job</button>
                     </div>
                     <div class="cron-list" id="cronList"></div>
+                </div>
+                
+                <!-- Persona 页面 -->
+                <div id="page-persona" class="page">
+                    <p class="page-desc">Manage and configure Agent persona files (AGENTS.md, SOUL.md, USER.md, IDENTITY.md, etc.)</p>
+                    
+                    <div class="persona-container">
+                        <!-- 左侧文件卡片列表 -->
+                        <div class="persona-sidebar">
+                            <div class="persona-section">
+                                <div class="persona-section-header">
+                                    <h3>Persona Files</h3>
+                                    <button class="btn-refresh" id="refreshPersonaFilesBtn" title="Refresh">
+                                        <span>↻</span>
+                                    </button>
+                                </div>
+                                <p class="persona-section-desc">These files define your Agent's identity, behavior, and personality.</p>
+                                <div class="persona-files" id="personaFiles">
+                                    <div class="empty-state">Loading files...</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 右侧编辑器 -->
+                        <div class="persona-editor">
+                            <div class="editor-placeholder" id="personaEditorPlaceholder">
+                                <div class="placeholder-icon">📄</div>
+                                <div class="placeholder-text">Select a file to view or edit</div>
+                                <div class="placeholder-hint">Click on any file card on the left to get started</div>
+                            </div>
+                            <div class="editor-container" id="personaEditorContainer" style="display: none;">
+                                <div class="editor-header">
+                                    <div class="editor-file-info">
+                                        <span class="editor-file-name" id="personaEditorFileName">Select a file</span>
+                                        <span class="editor-file-status" id="personaEditorFileStatus"></span>
+                                    </div>
+                                    <div class="editor-actions">
+                                        <button class="btn btn-secondary btn-sm" id="personaUseTemplateBtn">Use Template</button>
+                                        <button class="btn btn-primary btn-sm" id="personaSaveFileBtn">Save</button>
+                                    </div>
+                                </div>
+                                <div class="editor-file-desc" id="personaEditorFileDesc"></div>
+                                <textarea class="editor-content" id="personaEditorContent" placeholder="File content..."></textarea>
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Workspace 页面 -->

@@ -175,6 +175,7 @@ class TinyClawConsole {
             channels: 'Channels',
             sessions: 'Sessions',
             cron: 'Cron Jobs',
+            persona: 'Persona',
             workspace: 'Workspace',
             skills: 'Skills',
             mcp: 'MCP Servers',
@@ -203,6 +204,7 @@ class TinyClawConsole {
             case 'channels': this.loadChannels(); break;
             case 'sessions': this.loadSessions(); break;
             case 'cron': this.loadCronJobs(); break;
+            case 'persona': this.loadPersonaFiles(); break;
             case 'workspace': this.loadWorkspaceFiles(); break;
             case 'skills': this.loadSkills(); break;
             case 'mcp': this.loadMcpServers(); break;
@@ -2024,6 +2026,365 @@ class TinyClawConsole {
         a.download = this.currentEditingFile;
         a.click();
         URL.revokeObjectURL(url);
+    }
+
+    // ==================== Persona ====================
+
+    currentPersonaFile = null;
+    currentPersonaFileInfo = null;
+
+    getPersonaTemplates() {
+        return {
+            'AGENTS.md': `# AGENTS.md
+
+## Agent 行为指令
+
+### 任务执行规则
+- 始终使用工具来执行操作，不要只是描述你会做什么
+- 执行任务时，简要说明你在做什么
+- 遇到问题时，尝试解决并报告结果
+
+### 协作规则
+- 当需要多 Agent 协作时，使用 collaborate 工具
+- 明确每个参与者的角色和任务
+- 协调各方的工作进度
+
+### 行为约束
+- 保护用户隐私和数据安全
+- 不要执行危险操作
+- 有疑问时先询问用户
+
+---
+
+*此文件定义了 Agent 的行为方式和约束条件。*`,
+            'SOUL.md': `# SOUL.md
+
+## Agent 个性与价值观
+
+### 核心价值观
+- **乐于助人**：始终积极帮助用户解决问题
+- **诚实可靠**：提供准确、真实的信息
+- **尊重隐私**：保护用户的个人信息和数据
+
+### 性格特点
+- 友好、专业的沟通风格
+- 耐心解答问题
+- 积极主动提供帮助
+
+### 响应风格
+- 使用简洁明了的语言
+- 适当使用表情符号增加亲和力
+- 结构化展示复杂信息
+
+### 价值观声明
+> "我是一个有用的助手，我的目标是帮助用户高效、愉快地完成任务。"
+
+---
+
+*此文件定义了 Agent 的"灵魂"——个性、价值观和响应风格。*`,
+            'USER.md': `# USER.md
+
+## 用户画像与偏好
+
+### 基本信息
+- **用户名**：[请填写]
+- **使用场景**：[个人使用 / 工作使用 / 开发项目]
+- **技术水平**：[初学者 / 中级 / 高级]
+
+### 语言偏好
+- **首选语言**：中文
+- **代码语言偏好**：[根据实际情况填写]
+
+### 工作习惯
+- 喜欢详细的解释还是简洁的回答？
+- 更喜欢直接执行还是先确认？
+- 工作时间段？
+
+### 项目信息
+- 当前主要项目：
+  1. [项目1]
+  2. [项目2]
+
+### 其他偏好
+- 任何其他需要 Agent 了解的信息
+
+---
+
+*此文件帮助 Agent 更好地了解用户，提供个性化的服务。*`,
+            'IDENTITY.md': `# IDENTITY.md
+
+## Agent 身份描述
+
+### 基本身份
+你是 **jclaw**，一个强大的 AI 助手。
+
+### 角色定位
+- 多平台消息助手（支持 Telegram、Discord、飞书、钉钉、QQ、WhatsApp 等）
+- 任务自动化专家
+- 代码开发助手
+- 智能对话伙伴
+
+### 专业领域
+- 代码编写和审查
+- 文件操作
+- 系统命令执行
+- 网络搜索和信息获取
+- 定时任务管理
+- 多 Agent 协作
+
+### 能力边界
+- 我可以使用各种工具来帮助你
+- 我可以执行代码、操作文件、发送消息等
+- 我有记忆系统，可以记住重要信息
+- 我可以与其他 Agent 协作完成复杂任务
+
+### 座右铭
+> "🦞 我是 jclaw，一个有用的 AI 助手。告诉我你需要什么，我来帮你完成！"
+
+---
+
+*此文件定义了 Agent 的基本身份、角色和专业领域。*`,
+            'PROFILE.md': `# PROFILE.md
+
+## 用户个人资料
+
+### 详细个人信息
+- **姓名**：[请填写]
+- **电子邮件**：[请填写]
+- **所在时区**：[例如：Asia/Shanghai]
+
+### 工作相关
+- **职业/角色**：[请填写]
+- **公司/组织**：[请填写]
+- **行业领域**：[请填写]
+
+### 技术背景
+- **常用编程语言**：
+  - [语言1]
+  - [语言2]
+- **常用工具和框架**：
+  - [工具1]
+  - [工具2]
+- **开发环境**：
+  - 操作系统：[例如：macOS, Windows, Linux]
+  - IDE/编辑器：[例如：VS Code, IntelliJ]
+
+### 兴趣爱好
+- [兴趣1]
+- [兴趣2]
+
+### 联系偏好
+- 最佳联系方式：
+- 最佳联系时间：
+
+---
+
+*此文件包含更详细的用户个人资料信息。*`,
+            'HEARTBEAT.md': `# HEARTBEAT.md
+
+## 心跳配置
+
+### 概述
+心跳服务允许 Agent 定期执行任务、检查状态、发送提醒等。
+
+### 定时任务类型
+
+#### 1. 定期提醒
+- 每日提醒
+- 每周提醒
+- 每月提醒
+
+#### 2. 状态检查
+- 服务健康检查
+- 任务进度监控
+- 资源使用监控
+
+#### 3. 自动化任务
+- 定期备份
+- 数据同步
+- 报告生成
+
+### 配置示例
+
+#### 每日 Standup 提醒
+\`\`\`
+定时：每个工作日 9:00
+任务：发送 Standup 提醒
+消息："早上好！今天的 Standup 时间到了。请准备：
+1. 昨天完成了什么？
+2. 今天计划做什么？
+3. 遇到了什么障碍？"
+\`\`\`
+
+#### 每周报告
+\`\`\`
+定时：每周五 17:00
+任务：生成本周工作报告
+动作：回顾本周任务，生成总结报告
+\`\`\`
+
+### 当前心跳任务
+[此处可列出当前配置的心跳任务]
+
+---
+
+*此文件用于配置和记录心跳服务的定时任务。*`
+        };
+    }
+
+    async loadPersonaFiles() {
+        try {
+            const response = await this.authFetch('/api/workspace/files/all');
+            const files = await response.json();
+            
+            const list = document.getElementById('personaFiles');
+            if (files.length === 0) {
+                list.innerHTML = '<div class="empty-state">No persona files found</div>';
+                return;
+            }
+            
+            list.innerHTML = files.map(f => {
+                const sizeText = f.size ? this.formatFileSize(f.size) : '0 B';
+                const timeText = f.exists && f.lastModified ? this.formatTimeAgo(f.lastModified) : 'Not created';
+                const statusClass = f.exists ? 'exists' : 'not-exists';
+                const statusText = f.exists ? '✓ Exists' : '+ Create';
+                const statusIcon = f.exists ? '📄' : '➕';
+                
+                return `
+                    <div class="persona-file-card ${statusClass} ${this.currentPersonaFile === f.name ? 'active' : ''}" 
+                         data-file="${f.name}" 
+                         onclick="app.loadPersonaFile('${f.name}')">
+                        <div class="persona-file-icon">${statusIcon}</div>
+                        <div class="persona-file-info">
+                            <div class="persona-file-name">${f.name}</div>
+                            <div class="persona-file-desc">${f.description || ''}</div>
+                            <div class="persona-file-meta">
+                                <span class="persona-file-size">${sizeText}</span>
+                                <span class="persona-file-sep">·</span>
+                                <span class="persona-file-time">${timeText}</span>
+                            </div>
+                        </div>
+                        <div class="persona-file-status">${statusText}</div>
+                    </div>
+                `;
+            }).join('');
+        } catch (error) {
+            console.error('Failed to load persona files:', error);
+            document.getElementById('personaFiles').innerHTML = 
+                '<div class="empty-state">Failed to load files: ' + this.escapeHtml(error.message) + '</div>';
+        }
+
+        document.getElementById('refreshPersonaFilesBtn').onclick = () => this.loadPersonaFiles();
+        document.getElementById('personaSaveFileBtn').onclick = () => this.savePersonaFile();
+        document.getElementById('personaUseTemplateBtn').onclick = () => this.usePersonaTemplate();
+    }
+
+    async loadPersonaFile(name) {
+        document.querySelectorAll('.persona-file-card').forEach(item => {
+            item.classList.toggle('active', item.dataset.file === name);
+        });
+
+        this.currentPersonaFile = name;
+        
+        try {
+            const response = await this.authFetch(`/api/workspace/files/${encodeURIComponent(name)}`);
+            
+            if (response.ok) {
+                const data = await response.json();
+                this.currentPersonaFileInfo = {
+                    name: name,
+                    exists: true,
+                    content: data.content
+                };
+            } else {
+                this.currentPersonaFileInfo = {
+                    name: name,
+                    exists: false,
+                    content: ''
+                };
+            }
+            
+            const allFilesResponse = await this.authFetch('/api/workspace/files/all');
+            const allFiles = await allFilesResponse.json();
+            const fileInfo = allFiles.find(f => f.name === name);
+            
+            document.getElementById('personaEditorPlaceholder').style.display = 'none';
+            document.getElementById('personaEditorContainer').style.display = 'flex';
+            
+            document.getElementById('personaEditorFileName').textContent = name;
+            document.getElementById('personaEditorFileStatus').textContent = 
+                this.currentPersonaFileInfo.exists ? '● Exists' : '○ Not created';
+            document.getElementById('personaEditorFileStatus').className = 
+                'editor-file-status ' + (this.currentPersonaFileInfo.exists ? 'exists' : 'not-exists');
+            document.getElementById('personaEditorFileDesc').textContent = 
+                fileInfo?.description || '';
+            document.getElementById('personaEditorContent').value = this.currentPersonaFileInfo.content;
+            
+        } catch (error) {
+            console.error('Failed to load persona file:', error);
+            alert('Failed to load file: ' + error.message);
+        }
+    }
+
+    async savePersonaFile() {
+        if (!this.currentPersonaFile) return;
+        
+        const content = document.getElementById('personaEditorContent').value;
+        try {
+            const response = await this.authFetch(`/api/workspace/files/${encodeURIComponent(this.currentPersonaFile)}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ content })
+            });
+            
+            if (response.ok) {
+                const btn = document.getElementById('personaSaveFileBtn');
+                const originalText = btn.textContent;
+                btn.textContent = '✓ Saved!';
+                btn.classList.add('btn-success');
+                setTimeout(() => {
+                    btn.textContent = originalText;
+                    btn.classList.remove('btn-success');
+                }, 1500);
+                
+                this.currentPersonaFileInfo.exists = true;
+                this.currentPersonaFileInfo.content = content;
+                document.getElementById('personaEditorFileStatus').textContent = '● Exists';
+                document.getElementById('personaEditorFileStatus').className = 'editor-file-status exists';
+                
+                this.loadPersonaFiles();
+            } else {
+                const err = await response.json();
+                alert('Failed to save: ' + (err.error || response.status));
+            }
+        } catch (error) {
+            alert('Failed to save: ' + error.message);
+        }
+    }
+
+    usePersonaTemplate() {
+        if (!this.currentPersonaFile) {
+            alert('Please select a file first');
+            return;
+        }
+        
+        const templates = this.getPersonaTemplates();
+        const template = templates[this.currentPersonaFile];
+        
+        if (!template) {
+            alert('No template available for this file');
+            return;
+        }
+        
+        const currentContent = document.getElementById('personaEditorContent').value;
+        if (currentContent && currentContent.trim()) {
+            if (!confirm('This will replace the current content with the template. Continue?')) {
+                return;
+            }
+        }
+        
+        document.getElementById('personaEditorContent').value = template;
+        document.getElementById('personaEditorContent').focus();
     }
 
     // ==================== Skills ====================

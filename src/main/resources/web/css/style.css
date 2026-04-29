@@ -2541,3 +2541,286 @@ body {
     line-height: 1.5;
     color: var(--text);
 }
+
+/* ==================== Persona Page ==================== */
+
+.persona-container {
+    display: flex;
+    gap: 24px;
+    height: calc(100vh - 200px);
+}
+
+.persona-sidebar {
+    width: 480px;
+    flex-shrink: 0;
+    overflow-y: auto;
+}
+
+.persona-section {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.persona-section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.persona-section-header h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+.persona-section-desc {
+    color: var(--text-secondary);
+    font-size: 13px;
+    margin-bottom: 16px;
+    line-height: 1.5;
+}
+
+.persona-files {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.persona-file-card {
+    background: var(--bg);
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.persona-file-card:hover {
+    border-color: var(--primary);
+    background: var(--card);
+    box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+    transform: translateY(-2px);
+}
+
+.persona-file-card.active {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.persona-file-card.not-exists {
+    border-style: dashed;
+    opacity: 0.8;
+}
+
+.persona-file-card.not-exists:hover {
+    opacity: 1;
+    border-style: solid;
+}
+
+.persona-file-icon {
+    font-size: 28px;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.persona-file-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.persona-file-name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 4px;
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.persona-file-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+    line-height: 1.4;
+}
+
+.persona-file-meta {
+    font-size: 11px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.persona-file-size {
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.persona-file-sep {
+    color: var(--border);
+}
+
+.persona-file-time {
+    font-style: italic;
+}
+
+.persona-file-status {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 12px;
+    flex-shrink: 0;
+}
+
+.persona-file-card.exists .persona-file-status {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.persona-file-card.not-exists .persona-file-status {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.persona-editor {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.persona-editor .editor-placeholder {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--text-secondary);
+    text-align: center;
+    padding: 40px;
+}
+
+.persona-editor .placeholder-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+.persona-editor .placeholder-text {
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 8px;
+}
+
+.persona-editor .placeholder-hint {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.persona-editor .editor-container {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.persona-editor .editor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.persona-editor .editor-file-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.persona-editor .editor-file-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    font-family: 'Monaco', 'Menlo', monospace;
+}
+
+.persona-editor .editor-file-status {
+    font-size: 12px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 10px;
+}
+
+.persona-editor .editor-file-status.exists {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.persona-editor .editor-file-status.not-exists {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.persona-editor .editor-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.persona-editor .editor-file-desc {
+    padding: 10px 20px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.persona-editor .editor-content {
+    flex: 1;
+    padding: 16px 20px;
+    border: none;
+    resize: none;
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 13px;
+    line-height: 1.7;
+    background: var(--card);
+    border-radius: 0 0 12px 12px;
+}
+
+.persona-editor .editor-content:focus {
+    outline: none;
+}
+
+/* Responsive for Persona Page */
+@media (max-width: 1200px) {
+    .persona-container {
+        flex-direction: column;
+        height: auto;
+    }
+    
+    .persona-sidebar {
+        width: 100%;
+        max-height: 400px;
+    }
+    
+    .persona-editor {
+        min-height: 500px;
+    }
+}
