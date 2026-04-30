@@ -133,7 +133,7 @@ public class ChannelManager {
     private void initWechatChannel(ChannelsConfig channelsConfig) {
         if (channelsConfig.getWechat().isEnabled()) {
             try {
-                Channel wechat = new WechatChannel(channelsConfig.getWechat(), bus);
+                Channel wechat = new WechatChannel(config, channelsConfig.getWechat(), bus);
                 channels.put("wechat", wechat);
                 logger.info("Wechat channel enabled successfully");
             } catch (Exception e) {
@@ -383,7 +383,7 @@ public class ChannelManager {
             return wechatChannel;
         }
 
-        WechatChannel wechat = new WechatChannel(wechatConfig, bus);
+        WechatChannel wechat = new WechatChannel(config, wechatConfig, bus);
         channels.put("wechat", wechat);
         if (dispatchRunning) {
             startDispatcherForChannel("wechat");

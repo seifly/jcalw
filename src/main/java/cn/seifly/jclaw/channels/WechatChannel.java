@@ -4,9 +4,15 @@ import cn.seifly.jclaw.bus.InboundMessage;
 import cn.seifly.jclaw.bus.MessageBus;
 import cn.seifly.jclaw.bus.OutboundMessage;
 import cn.seifly.jclaw.config.ChannelsConfig;
+import cn.seifly.jclaw.config.Config;
+import cn.seifly.jclaw.config.ConfigLoader;
 import cn.seifly.jclaw.util.StringUtils;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.github.wechat.ilink.sdk.ILinkClient;
 import com.github.wechat.ilink.sdk.core.config.ILinkConfig;
+import com.github.wechat.ilink.sdk.core.context.ResumeContext;
 import com.github.wechat.ilink.sdk.core.listener.OnLoginListener;
 import com.github.wechat.ilink.sdk.core.listener.OnMessageListener;
 import com.github.wechat.ilink.sdk.core.login.LoginContext;
@@ -34,9 +40,19 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <p>SDK 的接收模型是扫码登录后由业务主动调用 getUpdates() 拉取消息，
  * 因此这里启动一个单线程消息泵，并在 SDK listener 中发布到 jclaw 总线。</p>
+ * 
+ * <p>登录状态恢复机制：
+ * - 登录成功后，使用 client.exportResumeContext() 导出恢复上下文
+ * - 将上下文序列化为 JSON 并保存到配置文件
+ * - 下次启动时，从配置读取并反序列化 ResumeContext，使用 ILinkClient.builder().resumeContext() 恢复登录</p>
  */
 public class WechatChannel extends BaseChannel {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+
+    private final Config rootConfig;
     private final ChannelsConfig.WechatConfig config;
     private final Set<Long> handledMessageIds = ConcurrentHashMap.newKeySet();
     private final AtomicReference<String> qrCodeContent = new AtomicReference<>("");
@@ -48,8 +64,9 @@ public class WechatChannel extends BaseChannel {
     private ILinkClient client;
     private ScheduledExecutorService messagePump;
 
-    public WechatChannel(ChannelsConfig.WechatConfig config, MessageBus bus) {
+    public WechatChannel(Config rootConfig, ChannelsConfig.WechatConfig config, MessageBus bus) {
         super("wechat", bus, config.getAllowFrom());
+        this.rootConfig = rootConfig;
         this.config = config;
     }
 
@@ -60,6 +77,14 @@ public class WechatChannel extends BaseChannel {
         }
 
         try {
+            if (tryLoginWithResumeContext()) {
+                startLoginTimeoutWatcher();
+                startMessagePump();
+                setRunning(true);
+                logger.info("微信通道已启动，使用 ResumeContext 恢复登录");
+                return;
+            }
+            
             ILinkConfig ilinkConfig = ILinkConfig.builder()
                     .connectTimeoutMs(35000)
                     .readTimeoutMs(35000)
@@ -79,6 +104,8 @@ public class WechatChannel extends BaseChannel {
                             qrCodeContent.set("");
                             qrCodeImage.set("");
                             logger.info("微信登录成功", Map.of("bot_id", botId.get()));
+                            
+                            exportAndSaveResumeContext();
                         }
 
                         @Override
@@ -288,5 +315,323 @@ public class WechatChannel extends BaseChannel {
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         MatrixToImageWriter.writeToStream(matrix, "PNG", output);
         return "data:image/png;base64," + Base64.getEncoder().encodeToString(output.toByteArray());
+    }
+
+    /**
+     * 尝试使用已保存的 ResumeContext 恢复登录。
+     * 
+     * 实现流程：
+     * 1. 从配置中读取 resumeContextJson
+     * 2. 反序列化为 Map（因为 ResumeContext 没有默认构造函数，无法直接反序列化）
+     * 3. 使用反射从 Map 创建 ResumeContext 实例
+     * 4. 使用 ILinkClient.builder().resumeContext() 创建客户端
+     * 
+     * @return 如果成功恢复登录返回 true，否则返回 false（需要使用二维码登录）
+     */
+    @SuppressWarnings("unchecked")
+    private boolean tryLoginWithResumeContext() {
+        String resumeContextJson = config.getResumeContextJson();
+        if (resumeContextJson == null || resumeContextJson.isEmpty()) {
+            return false;
+        }
+        
+        logger.info("尝试使用已保存的 ResumeContext 恢复登录");
+        
+        try {
+            Class<?> resumeContextClass = Class.forName("com.github.wechat.ilink.sdk.core.context.ResumeContext");
+            
+            Map<String, Object> contextMap = OBJECT_MAPPER.readValue(resumeContextJson, Map.class);
+            ResumeContext resumeContext = (ResumeContext)createResumeContextFromMap(contextMap, ResumeContext.class);
+            
+            if (resumeContext == null) {
+                logger.error("无法从保存的配置创建 ResumeContext 实例");
+                config.setResumeContextJson(null);
+                saveConfig();
+                return false;
+            }
+            
+            ILinkConfig ilinkConfig = ILinkConfig.builder()
+                    .connectTimeoutMs(35000)
+                    .readTimeoutMs(35000)
+                    .writeTimeoutMs(35000)
+                    .httpMaxRetries(3)
+                    .heartbeatEnabled(false)
+                    .build();
+            
+            client = ILinkClient.builder()
+                    .config(ilinkConfig)
+                    .resumeContext(resumeContext)
+                    .onLogin(new OnLoginListener() {
+                        @Override
+                        public void onLoginSuccess(LoginContext context) {
+                            botId.set(context != null ? context.getBotId() : "");
+                            loginState.set("logged_in");
+                            loginError.set("");
+                            qrCodeContent.set("");
+                            qrCodeImage.set("");
+                            logger.info("微信使用 ResumeContext 恢复登录成功", Map.of("bot_id", botId.get()));
+                            
+                            exportAndSaveResumeContext();
+                        }
+
+                        @Override
+                        public void onLoginFailure(Throwable throwable) {
+                            loginState.set("failed");
+                            loginError.set(throwable != null ? throwable.getMessage() : "resume context 登录失败");
+                            logger.error("微信使用 ResumeContext 恢复登录失败", Map.of("error", loginError.get()));
+                            
+                            config.setResumeContextJson(null);
+                            saveConfig();
+                        }
+                    })
+                    .onMessage(new OnMessageListener() {
+                        @Override
+                        public void onMessages(List<WeixinMessage> messages) {
+                            handleMessages(messages);
+                        }
+                    })
+                    .build();
+            
+            loginState.set("waiting_resume_login");
+            return true;
+            
+        } catch (ClassNotFoundException e) {
+            logger.error("未找到 ResumeContext 类", Map.of("error", e.getMessage()));
+            config.setResumeContextJson(null);
+            saveConfig();
+            return false;
+        } catch (Exception e) {
+            logger.error("使用 ResumeContext 恢复登录失败", Map.of("error", e.getMessage()));
+            config.setResumeContextJson(null);
+            saveConfig();
+            return false;
+        }
+    }
+
+    /**
+     * 导出 ResumeContext 并保存到配置文件。
+     * 
+     * 实现流程：
+     * 1. 使用 client.exportResumeContext() 导出恢复上下文
+     * 2. 使用反射提取所有字段到 Map
+     * 3. 序列化为 JSON 字符串（Map 可以正常序列化）
+     * 4. 保存到配置并持久化到配置文件
+     */
+    private void exportAndSaveResumeContext() {
+        if (client == null) {
+            return;
+        }
+        
+        try {
+            java.lang.reflect.Method exportMethod = client.getClass().getMethod("exportResumeContext");
+            Object resumeContext = exportMethod.invoke(client);
+            
+            if (resumeContext != null) {
+                Map<String, Object> contextMap = extractFieldsToMap(resumeContext);
+                String json = OBJECT_MAPPER.writeValueAsString(contextMap);
+                config.setResumeContextJson(json);
+                saveConfig();
+                logger.info("微信 ResumeContext 已保存到配置");
+            }
+        } catch (NoSuchMethodException e) {
+            logger.debug("ILinkClient 没有 exportResumeContext 方法", Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            logger.error("导出或保存 ResumeContext 失败", Map.of("error", e.getMessage()));
+        }
+    }
+
+    /**
+     * 使用反射提取对象的所有字段到 Map。
+     * 
+     * @param obj 要提取的对象
+     * @return 包含所有字段名和值的 Map
+     */
+    private Map<String, Object> extractFieldsToMap(Object obj) {
+        Map<String, Object> map = new HashMap<>();
+        if (obj == null) {
+            return map;
+        }
+        
+        Class<?> clazz = obj.getClass();
+        for (java.lang.reflect.Field field : clazz.getDeclaredFields()) {
+            try {
+                field.setAccessible(true);
+                Object value = field.get(obj);
+                if (value != null) {
+                    map.put(field.getName(), value);
+                }
+            } catch (Exception e) {
+                logger.debug("提取字段失败", Map.of("field", field.getName(), "error", e.getMessage()));
+            }
+        }
+        
+        return map;
+    }
+
+    /**
+     * 使用反射从 Map 创建 ResumeContext 实例并设置字段。
+     * 
+     * @param map 包含字段名和值的 Map
+     * @param clazz ResumeContext 类
+     * @return 创建的 ResumeContext 实例，如果失败返回 null
+     */
+    private Object createResumeContextFromMap(Map<String, Object> map, Class<?> clazz) {
+        if (map == null || map.isEmpty()) {
+            return null;
+        }
+        
+        try {
+            Object instance = null;
+            
+            java.lang.reflect.Constructor<?>[] constructors = clazz.getDeclaredConstructors();
+            for (java.lang.reflect.Constructor<?> constructor : constructors) {
+                try {
+                    constructor.setAccessible(true);
+                    Class<?>[] paramTypes = constructor.getParameterTypes();
+                    Object[] params = new Object[paramTypes.length];
+                    
+                    for (int i = 0; i < paramTypes.length; i++) {
+                        params[i] = null;
+                    }
+                    
+                    instance = constructor.newInstance(params);
+                    break;
+                } catch (Exception e) {
+                    logger.debug("尝试构造函数失败", Map.of("params", constructor.getParameterCount()));
+                }
+            }
+            
+            if (instance == null) {
+                logger.error("无法找到合适的构造函数创建 ResumeContext 实例");
+                return null;
+            }
+            
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                try {
+                    java.lang.reflect.Field field = clazz.getDeclaredField(entry.getKey());
+                    field.setAccessible(true);
+                    
+                    Object value = entry.getValue();
+                    if (value instanceof Map) {
+                        Class<?> fieldType = field.getType();
+                        try {
+                            String nestedJson = OBJECT_MAPPER.writeValueAsString(value);
+                            value = OBJECT_MAPPER.readValue(nestedJson, fieldType);
+                        } catch (Exception e) {
+                            logger.debug("嵌套对象反序列化失败，尝试使用反射创建", 
+                                    Map.of("field", entry.getKey(), "error", e.getMessage()));
+                            value = createNestedObjectFromMap((Map<String, Object>) value, fieldType);
+                        }
+                    } else if (value instanceof Number) {
+                        Class<?> fieldType = field.getType();
+                        if (fieldType == int.class || fieldType == Integer.class) {
+                            value = ((Number) value).intValue();
+                        } else if (fieldType == long.class || fieldType == Long.class) {
+                            value = ((Number) value).longValue();
+                        } else if (fieldType == double.class || fieldType == Double.class) {
+                            value = ((Number) value).doubleValue();
+                        } else if (fieldType == float.class || fieldType == Float.class) {
+                            value = ((Number) value).floatValue();
+                        }
+                    }
+                    
+                    field.set(instance, value);
+                } catch (NoSuchFieldException e) {
+                    logger.debug("字段不存在，跳过", Map.of("field", entry.getKey()));
+                } catch (Exception e) {
+                    logger.debug("设置字段失败", Map.of("field", entry.getKey(), "error", e.getMessage()));
+                }
+            }
+            
+            return instance;
+            
+        } catch (Exception e) {
+            logger.error("创建 ResumeContext 实例失败", Map.of("error", e.getMessage()));
+            return null;
+        }
+    }
+
+    /**
+     * 使用反射从 Map 创建嵌套对象实例。
+     * 
+     * @param map 包含字段名和值的 Map
+     * @param clazz 目标类
+     * @return 创建的对象实例，如果失败返回 null
+     */
+    private Object createNestedObjectFromMap(Map<String, Object> map, Class<?> clazz) {
+        if (map == null || map.isEmpty()) {
+            return null;
+        }
+        
+        try {
+            Object instance = null;
+            
+            java.lang.reflect.Constructor<?>[] constructors = clazz.getDeclaredConstructors();
+            for (java.lang.reflect.Constructor<?> constructor : constructors) {
+                try {
+                    constructor.setAccessible(true);
+                    Class<?>[] paramTypes = constructor.getParameterTypes();
+                    Object[] params = new Object[paramTypes.length];
+                    
+                    for (int i = 0; i < paramTypes.length; i++) {
+                        params[i] = null;
+                    }
+                    
+                    instance = constructor.newInstance(params);
+                    break;
+                } catch (Exception e) {
+                }
+            }
+            
+            if (instance == null) {
+                return null;
+            }
+            
+            for (Map.Entry<String, Object> entry : map.entrySet()) {
+                try {
+                    java.lang.reflect.Field field = clazz.getDeclaredField(entry.getKey());
+                    field.setAccessible(true);
+                    
+                    Object value = entry.getValue();
+                    if (value instanceof Map) {
+                        Class<?> fieldType = field.getType();
+                        try {
+                            String nestedJson = OBJECT_MAPPER.writeValueAsString(value);
+                            value = OBJECT_MAPPER.readValue(nestedJson, fieldType);
+                        } catch (Exception e) {
+                            value = createNestedObjectFromMap((Map<String, Object>) value, fieldType);
+                        }
+                    } else if (value instanceof Number) {
+                        Class<?> fieldType = field.getType();
+                        if (fieldType == int.class || fieldType == Integer.class) {
+                            value = ((Number) value).intValue();
+                        } else if (fieldType == long.class || fieldType == Long.class) {
+                            value = ((Number) value).longValue();
+                        }
+                    }
+                    
+                    field.set(instance, value);
+                } catch (Exception e) {
+                }
+            }
+            
+            return instance;
+            
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 保存配置到配置文件。
+     */
+    private void saveConfig() {
+        try {
+            String configPath = ConfigLoader.getConfigPath();
+            ConfigLoader.save(configPath, rootConfig);
+            logger.debug("微信配置已保存到文件", Map.of("path", configPath));
+        } catch (Exception e) {
+            logger.error("保存微信配置失败", Map.of("error", e.getMessage()));
+        }
     }
 }

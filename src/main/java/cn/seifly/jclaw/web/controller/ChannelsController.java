@@ -178,6 +178,9 @@ public class ChannelsController {
         if (channel == null) {
             try {
                 channel = channelManager.ensureWechatChannel(config.getChannels().getWechat());
+                config.getChannels().getWechat().setEnabled(true);
+                WebUtils.saveConfig(config, logger);
+                logger.info("微信通道已启用，配置已保存到 config.json");
             } catch (Exception e) {
                 status.put("running", false);
                 status.put("loggedIn", false);
@@ -248,6 +251,9 @@ public class ChannelsController {
                 detail.put("enabled", cc.getFeishu().isEnabled());
                 detail.put("appId", cc.getFeishu().getAppId());
                 detail.put("appSecret", WebUtils.maskSecret(cc.getFeishu().getAppSecret()));
+                detail.put("encryptKey", WebUtils.maskSecret(cc.getFeishu().getEncryptKey()));
+                detail.put("verificationToken", WebUtils.maskSecret(cc.getFeishu().getVerificationToken()));
+                detail.put("connectionMode", cc.getFeishu().getConnectionMode());
                 detail.put("allowFrom", cc.getFeishu().getAllowFrom());
                 yield detail;
             }
@@ -255,6 +261,7 @@ public class ChannelsController {
                 detail.put("enabled", cc.getWechat().isEnabled());
                 detail.put("pollIntervalMs", cc.getWechat().getPollIntervalMs());
                 detail.put("loginTimeoutSeconds", cc.getWechat().getLoginTimeoutSeconds());
+                detail.put("botToken", WebUtils.maskSecret(cc.getWechat().getBotToken()));
                 detail.put("allowFrom", cc.getWechat().getAllowFrom());
                 yield detail;
             }
@@ -262,6 +269,8 @@ public class ChannelsController {
                 detail.put("enabled", cc.getDingtalk().isEnabled());
                 detail.put("clientId", cc.getDingtalk().getClientId());
                 detail.put("clientSecret", WebUtils.maskSecret(cc.getDingtalk().getClientSecret()));
+                detail.put("webhook", cc.getDingtalk().getWebhook());
+                detail.put("connectionMode", cc.getDingtalk().getConnectionMode());
                 detail.put("allowFrom", cc.getDingtalk().getAllowFrom());
                 yield detail;
             }
@@ -303,11 +312,13 @@ public class ChannelsController {
             case "feishu" -> { updateFeishuConfig(cc, request); yield true; }
             case "dingtalk" -> { updateDingtalkConfig(cc, request); yield true; }
             case "qq" -> { updateQQConfig(cc, request); yield true; }
+            case "whatsapp" -> { updateWhatsappConfig(cc, request); yield true; }
+            case "maixcam" -> { updateMaixcamConfig(cc, request); yield true; }
             default -> false;
         };
     }
     
-    /** 更新 Telegram 配置：enabled 及 Token（已掩码时跳过）。 */
+    /** 更新 Telegram 配置：所有字段。 */
     private void updateTelegramConfig(ChannelsConfig cc, Map<String, Object> request) {
         if (request.containsKey("enabled")) {
             cc.getTelegram().setEnabled((Boolean) request.get("enabled"));
@@ -318,9 +329,14 @@ public class ChannelsController {
                 cc.getTelegram().setToken(token);
             }
         }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getTelegram().setAllowFrom(allowFrom);
+        }
     }
     
-    /** 更新 Discord 配置：enabled 及 Token（已掩码时跳过）。 */
+    /** 更新 Discord 配置：所有字段。 */
     private void updateDiscordConfig(ChannelsConfig cc, Map<String, Object> request) {
         if (request.containsKey("enabled")) {
             cc.getDiscord().setEnabled((Boolean) request.get("enabled"));
@@ -331,9 +347,14 @@ public class ChannelsController {
                 cc.getDiscord().setToken(token);
             }
         }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getDiscord().setAllowFrom(allowFrom);
+        }
     }
 
-    /** 更新微信配置：enabled、pollIntervalMs、loginTimeoutSeconds。 */
+    /** 更新微信配置：所有字段。 */
     private void updateWechatConfig(ChannelsConfig cc, Map<String, Object> request) {
         if (request.containsKey("enabled")) {
             cc.getWechat().setEnabled((Boolean) request.get("enabled"));
@@ -344,9 +365,20 @@ public class ChannelsController {
         if (request.containsKey("loginTimeoutSeconds")) {
             cc.getWechat().setLoginTimeoutSeconds(toInt(request.get("loginTimeoutSeconds"), cc.getWechat().getLoginTimeoutSeconds()));
         }
+        if (request.containsKey("botToken")) {
+            String botToken = (String) request.get("botToken");
+            if (!WebUtils.isSecretMasked(botToken)) {
+                cc.getWechat().setBotToken(botToken);
+            }
+        }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getWechat().setAllowFrom(allowFrom);
+        }
     }
     
-    /** 更新飞书配置：enabled、appId 及 appSecret（已掩码时跳过）。 */
+    /** 更新飞书配置：所有字段。 */
     private void updateFeishuConfig(ChannelsConfig cc, Map<String, Object> request) {
         if (request.containsKey("enabled")) {
             cc.getFeishu().setEnabled((Boolean) request.get("enabled"));
@@ -360,9 +392,29 @@ public class ChannelsController {
                 cc.getFeishu().setAppSecret(appSecret);
             }
         }
+        if (request.containsKey("encryptKey")) {
+            String encryptKey = (String) request.get("encryptKey");
+            if (!WebUtils.isSecretMasked(encryptKey)) {
+                cc.getFeishu().setEncryptKey(encryptKey);
+            }
+        }
+        if (request.containsKey("verificationToken")) {
+            String verificationToken = (String) request.get("verificationToken");
+            if (!WebUtils.isSecretMasked(verificationToken)) {
+                cc.getFeishu().setVerificationToken(verificationToken);
+            }
+        }
+        if (request.containsKey("connectionMode")) {
+            cc.getFeishu().setConnectionMode((String) request.get("connectionMode"));
+        }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getFeishu().setAllowFrom(allowFrom);
+        }
     }
     
-    /** 更新钉钉配置：enabled、clientId 及 clientSecret（已掩码时跳过）。 */
+    /** 更新钉钉配置：所有字段。 */
     private void updateDingtalkConfig(ChannelsConfig cc, Map<String, Object> request) {
         if (request.containsKey("enabled")) {
             cc.getDingtalk().setEnabled((Boolean) request.get("enabled"));
@@ -376,9 +428,20 @@ public class ChannelsController {
                 cc.getDingtalk().setClientSecret(clientSecret);
             }
         }
+        if (request.containsKey("webhook")) {
+            cc.getDingtalk().setWebhook((String) request.get("webhook"));
+        }
+        if (request.containsKey("connectionMode")) {
+            cc.getDingtalk().setConnectionMode((String) request.get("connectionMode"));
+        }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getDingtalk().setAllowFrom(allowFrom);
+        }
     }
     
-    /** 更新 QQ 配置：enabled、appId 及 appSecret（已掩码时跳过）。 */
+    /** 更新 QQ 配置：所有字段。 */
     private void updateQQConfig(ChannelsConfig cc, Map<String, Object> request) {
         if (request.containsKey("enabled")) {
             cc.getQq().setEnabled((Boolean) request.get("enabled"));
@@ -391,6 +454,44 @@ public class ChannelsController {
             if (!WebUtils.isSecretMasked(appSecret)) {
                 cc.getQq().setAppSecret(appSecret);
             }
+        }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getQq().setAllowFrom(allowFrom);
+        }
+    }
+    
+    /** 更新 WhatsApp 配置：所有字段。 */
+    private void updateWhatsappConfig(ChannelsConfig cc, Map<String, Object> request) {
+        if (request.containsKey("enabled")) {
+            cc.getWhatsapp().setEnabled((Boolean) request.get("enabled"));
+        }
+        if (request.containsKey("bridgeUrl")) {
+            cc.getWhatsapp().setBridgeUrl((String) request.get("bridgeUrl"));
+        }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getWhatsapp().setAllowFrom(allowFrom);
+        }
+    }
+    
+    /** 更新 MaixCam 配置：所有字段。 */
+    private void updateMaixcamConfig(ChannelsConfig cc, Map<String, Object> request) {
+        if (request.containsKey("enabled")) {
+            cc.getMaixcam().setEnabled((Boolean) request.get("enabled"));
+        }
+        if (request.containsKey("host")) {
+            cc.getMaixcam().setHost((String) request.get("host"));
+        }
+        if (request.containsKey("port")) {
+            cc.getMaixcam().setPort(toInt(request.get("port"), cc.getMaixcam().getPort()));
+        }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getMaixcam().setAllowFrom(allowFrom);
         }
     }
 
