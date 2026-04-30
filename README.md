@@ -580,6 +580,22 @@ java -jar target/jclaw-0.1.0.jar
 
 ---
 
+### 💬 进群讨论
+
+欢迎扫描下方二维码加入微信交流群，与其他开发者一起交流学习、分享经验、解答问题：
+
+<div align="center">
+<img src="docs/.img/wx-seilfy.jpg" alt="微信交流群" width="300">
+</div>
+
+**群内福利：**
+- 📚 最新技术资讯分享
+- 💡 项目开发经验交流
+- 🐛 问题解答与技术支持
+- 🌐 认识志同道合的开发者
+
+---
+
 ### 📄 License
 
 [Apache License 2.0](https://opensource.org/licenses/apache-2.0). No asterisks.
