@@ -72,8 +72,8 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     @PostConstruct
     public void init(){
         try {
-            //config = ConfigLoader.load();
-            config = Config.defaultConfig();
+            config = ConfigLoader.load();
+            //config = Config.defaultConfig();
             logger.info("Loaded configuration from config.json", Map.of(
                     "workspace", config.getWorkspacePath(),
                     "model", config.getAgent().getModel()
