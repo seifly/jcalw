@@ -98,14 +98,22 @@ public class WechatChannel extends BaseChannel {
                     .onLogin(new OnLoginListener() {
                         @Override
                         public void onLoginSuccess(LoginContext context) {
-                            botId.set(context != null ? context.getBotId() : "");
-                            loginState.set("logged_in");
-                            loginError.set("");
-                            qrCodeContent.set("");
-                            qrCodeImage.set("");
-                            logger.info("微信登录成功", Map.of("bot_id", botId.get()));
-                            
-                            exportAndSaveResumeContext();
+                            if (context == null || context.getBotId() == null || context.getBotId().isEmpty()) {
+                                loginState.set("failed");
+                                loginError.set("微信登录成功但无法获取 botId，请重新扫码登录");
+                                logger.error("微信登录成功但无法获取 botId", 
+                                        Map.of("context_null", context == null, 
+                                               "bot_id", context != null ? context.getBotId() : null));
+                            } else {
+                                botId.set(context.getBotId());
+                                loginState.set("logged_in");
+                                loginError.set("");
+                                qrCodeContent.set("");
+                                qrCodeImage.set("");
+                                logger.info("微信登录成功", Map.of("bot_id", botId.get()));
+                                
+                                exportAndSaveResumeContext();
+                            }
                         }
 
                         @Override
@@ -192,13 +200,32 @@ public class WechatChannel extends BaseChannel {
     public Map<String, Object> getLoginStatus() {
         Map<String, Object> status = new HashMap<>();
         boolean loggedIn = client != null && client.isLoggedIn();
+        String currentState = loginState.get();
+        String currentBotId = botId.get();
+        
+        boolean isFailed = "failed".equals(currentState) || "expired".equals(currentState);
+        boolean isBotIdEmpty = currentBotId == null || currentBotId.isEmpty();
+        boolean isLoginIncomplete = loggedIn && isBotIdEmpty;
+        
+        if (isFailed || isLoginIncomplete) {
+            status.put("loggedIn", false);
+            if (isLoginIncomplete) {
+                status.put("state", "failed");
+                status.put("error", "微信登录状态不完整，请重新扫码登录");
+            } else {
+                status.put("state", currentState);
+                status.put("error", loginError.get());
+            }
+        } else {
+            status.put("loggedIn", loggedIn);
+            status.put("state", loggedIn ? "logged_in" : currentState);
+            status.put("error", loginError.get());
+        }
+        
         status.put("running", isRunning());
-        status.put("loggedIn", loggedIn);
-        status.put("state", loggedIn ? "logged_in" : loginState.get());
-        status.put("botId", botId.get());
+        status.put("botId", currentBotId);
         status.put("qrCodeContent", qrCodeContent.get());
         status.put("qrCodeImage", qrCodeImage.get());
-        status.put("error", loginError.get());
         return status;
     }
 
@@ -227,13 +254,23 @@ public class WechatChannel extends BaseChannel {
         });
 
         messagePump.scheduleWithFixedDelay(() -> {
-            if (client == null || !client.isLoggedIn()) {
+            String currentState = loginState.get();
+            if (client == null || !client.isLoggedIn() 
+                    || "failed".equals(currentState) || "expired".equals(currentState)) {
                 return;
             }
             try {
                 client.getUpdates();
             } catch (Exception e) {
-                logger.warn("拉取微信消息失败", Map.of("error", e.getMessage()));
+                String errorMsg = e.getMessage() != null ? e.getMessage() : "";
+                
+                if (errorMsg.contains("session expired")) {
+                    loginState.set("expired");
+                    loginError.set("微信会话已过期，请重新扫码登录");
+                    logger.error("微信会话已过期，需要重新扫码登录", Map.of("error", errorMsg));
+                } else {
+                    logger.warn("拉取微信消息失败", Map.of("error", errorMsg));
+                }
             }
         }, 0, intervalMs, TimeUnit.MILLISECONDS);
     }
@@ -364,14 +401,25 @@ public class WechatChannel extends BaseChannel {
                     .onLogin(new OnLoginListener() {
                         @Override
                         public void onLoginSuccess(LoginContext context) {
-                            botId.set(context != null ? context.getBotId() : "");
-                            loginState.set("logged_in");
-                            loginError.set("");
-                            qrCodeContent.set("");
-                            qrCodeImage.set("");
-                            logger.info("微信使用 ResumeContext 恢复登录成功", Map.of("bot_id", botId.get()));
-                            
-                            exportAndSaveResumeContext();
+                            if (context == null || context.getBotId() == null || context.getBotId().isEmpty()) {
+                                loginState.set("failed");
+                                loginError.set("微信使用 ResumeContext 恢复登录成功但无法获取 botId，请重新扫码登录");
+                                logger.error("微信使用 ResumeContext 恢复登录成功但无法获取 botId", 
+                                        Map.of("context_null", context == null, 
+                                               "bot_id", context != null ? context.getBotId() : null));
+                                
+                                config.setResumeContextJson(null);
+                                saveConfig();
+                            } else {
+                                botId.set(context.getBotId());
+                                loginState.set("logged_in");
+                                loginError.set("");
+                                qrCodeContent.set("");
+                                qrCodeImage.set("");
+                                logger.info("微信使用 ResumeContext 恢复登录成功", Map.of("bot_id", botId.get()));
+                                
+                                exportAndSaveResumeContext();
+                            }
                         }
 
                         @Override
