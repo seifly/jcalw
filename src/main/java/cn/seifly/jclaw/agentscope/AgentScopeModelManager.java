@@ -1,18 +1,19 @@
-package cn.seifly.jclaw.springai;
+package cn.seifly.jclaw.agentscope;
 
-import org.springframework.ai.chat.model.ChatModel;
-import org.springframework.ai.openai.OpenAiChatModel;
-import org.springframework.ai.openai.OpenAiChatOptions;
-import org.springframework.ai.openai.api.OpenAiApi;
+import io.agentscope.core.model.AnthropicChatModel;
+import io.agentscope.core.model.GeminiChatModel;
+import io.agentscope.core.model.Model;
+import io.agentscope.core.model.OllamaChatModel;
+import io.agentscope.core.model.OpenAIChatModel;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Component
-public class SpringAiModelManager {
+public class AgentScopeModelManager {
     
-    private final Map<String, ChatModel> chatModels = new ConcurrentHashMap<>();
+    private final Map<String, Model> chatModels = new ConcurrentHashMap<>();
     private final Map<String, ModelConfig> modelConfigs = new ConcurrentHashMap<>();
     private String defaultModelName = "gpt-4o";
     
@@ -20,17 +21,17 @@ public class SpringAiModelManager {
         ModelConfig config = new ModelConfig(modelName, providerName, apiKey, apiBase);
         modelConfigs.put(modelName, config);
         
-        ChatModel chatModel = createChatModel(config);
+        Model chatModel = createChatModel(config);
         if (chatModel != null) {
             chatModels.put(modelName, chatModel);
         }
     }
     
-    public ChatModel getChatModel(String modelName) {
+    public Model getChatModel(String modelName) {
         if (modelName == null) {
             return chatModels.get(defaultModelName);
         }
-        ChatModel model = chatModels.get(modelName);
+        Model model = chatModels.get(modelName);
         if (model == null) {
             return chatModels.get(defaultModelName);
         }
@@ -53,32 +54,60 @@ public class SpringAiModelManager {
         return chatModels.containsKey(modelName);
     }
     
-    private ChatModel createChatModel(ModelConfig config) {
+    private Model createChatModel(ModelConfig config) {
         return switch (config.providerName().toLowerCase()) {
             case "openai", "openrouter" -> createOpenAiChatModel(config);
-            case "dashscope", "zhipu", "anthropic", "gemini", "ollama" -> createOpenAiCompatibleChatModel(config);
+            case "dashscope" -> createOpenAiCompatibleChatModel(config);
+            case "anthropic" -> createAnthropicChatModel(config);
+            case "gemini" -> createGeminiChatModel(config);
+            case "ollama" -> createOllamaChatModel(config);
+            case "zhipu", "deepseek" -> createOpenAiCompatibleChatModel(config);
             default -> null;
         };
     }
     
-    private ChatModel createOpenAiChatModel(ModelConfig config) {
+    private Model createOpenAiChatModel(ModelConfig config) {
         String baseUrl = normalizeBaseUrl(config.apiBase());
-        OpenAiApi openAiApi = OpenAiApi.builder()
+        
+        OpenAIChatModel.Builder builder = OpenAIChatModel.builder()
                 .apiKey(config.apiKey())
-                .baseUrl(baseUrl)
-                .build();
+                .modelName(config.modelName());
         
-        OpenAiChatOptions options = OpenAiChatOptions.builder()
-                .model(config.modelName())
-                .build();
+        if (baseUrl != null && !baseUrl.isEmpty()) {
+            builder.baseUrl(baseUrl);
+        }
         
-        return OpenAiChatModel.builder()
-                .openAiApi(openAiApi)
-                .defaultOptions(options)
+        return builder.build();
+    }
+    
+    private Model createAnthropicChatModel(ModelConfig config) {
+        return AnthropicChatModel.builder()
+                .apiKey(config.apiKey())
+                .modelName(config.modelName())
                 .build();
     }
     
-    private ChatModel createOpenAiCompatibleChatModel(ModelConfig config) {
+    private Model createGeminiChatModel(ModelConfig config) {
+        GeminiChatModel.Builder builder = GeminiChatModel.builder()
+                .apiKey(config.apiKey())
+                .modelName(config.modelName());
+        
+        return builder.build();
+    }
+    
+    private Model createOllamaChatModel(ModelConfig config) {
+        String baseUrl = normalizeBaseUrl(config.apiBase());
+        if (baseUrl == null || baseUrl.isEmpty()) {
+            baseUrl = "http://localhost:11434";
+        }
+        
+        return OllamaChatModel.builder()
+                .baseUrl(baseUrl)
+                .modelName(config.modelName())
+                .build();
+    }
+    
+    private Model createOpenAiCompatibleChatModel(ModelConfig config) {
         return createOpenAiChatModel(config);
     }
     
@@ -98,14 +127,6 @@ public class SpringAiModelManager {
         
         if (normalized.endsWith("/")) {
             normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        
-        if (normalized.endsWith("/v1")) {
-            normalized = normalized.substring(0, normalized.length() - 3);
-        } else if (normalized.endsWith("/v1beta")) {
-            normalized = normalized.substring(0, normalized.length() - 7);
-        } else if (normalized.endsWith("/v4")) {
-            normalized = normalized.substring(0, normalized.length() - 3);
         }
         
         return normalized;

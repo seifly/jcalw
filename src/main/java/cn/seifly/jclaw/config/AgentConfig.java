@@ -32,6 +32,13 @@ public class AgentConfig {
     private String workspace;
 
     /**
+     * 内置技能目录路径
+     * <p>指定内置技能的加载目录，如 /path/to/skills</p>
+     * <p>如果设置了此路径，将优先从该目录加载技能，而不是从 classpath 加载</p>
+     */
+    private String builtinSkills;
+
+    /**
      * LLM 模型标识
      * <p>指定 Agent 使用的语言模型，如 qwen3.6-plus、gpt-4 等</p>
      */
@@ -136,6 +143,24 @@ public class AgentConfig {
      */
     public void setWorkspace(String workspace) {
         this.workspace = workspace;
+    }
+
+    /**
+     * 获取内置技能目录路径
+     *
+     * @return 内置技能目录路径
+     */
+    public String getBuiltinSkills() {
+        return builtinSkills;
+    }
+
+    /**
+     * 设置内置技能目录路径
+     *
+     * @param builtinSkills 内置技能目录路径
+     */
+    public void setBuiltinSkills(String builtinSkills) {
+        this.builtinSkills = builtinSkills;
     }
 
     /**

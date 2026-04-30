@@ -101,36 +101,60 @@ public class SkillsTool implements Tool {
 
     @Override
     public String description() {
-        return "管理和执行技能：列出、调用（invoke）、搜索 GitHub 上的技能、安装（支持 GitHub 仓库或压缩包 URL）、创建新技能、编辑现有技能或删除技能。"
-                + "使用 search 操作搜索 GitHub 上的社区技能。"
-                + "使用 invoke 操作调用技能，会返回技能完整内容和目录路径（base-path），可用于执行技能目录下的脚本。";
+        return "技能管理工具。用于：\n"
+                + "1. list - 列出所有已安装的技能\n"
+                + "2. invoke - 调用指定技能（最重要！当用户需要执行某个技能时使用）\n"
+                + "3. search - 在 GitHub 上搜索可用技能\n"
+                + "4. install - 安装新技能\n"
+                + "5. create - 创建新技能\n"
+                + "6. edit - 编辑现有技能\n"
+                + "7. remove - 删除技能\n\n"
+                + "重要：当用户询问天气、需要生成 PPT、或提到任何已安装的技能名称时，必须先使用 invoke 操作调用对应的技能。";
     }
 
     @Override
     public Map<String, Object> parameters() {
         Map<String, Object> properties = new HashMap<>();
-        properties.put("action", buildParam("string",
-                "要执行的操作："
-                        + "'list' - 列出所有已安装的技能; "
-                        + "'invoke' - 调用技能，返回完整内容和基础路径（base-path），可用于执行技能目录下的脚本; "
-                        + "'search' - 在 GitHub 上搜索可用的技能仓库（需要 query 参数）; "
-                        + "'install' - 安装技能，支持 GitHub 仓库（'owner/repo' 或 'owner/repo/skill-name'）或压缩包 URL（.zip/.tar.gz）; "
-                        + "'create' - 创建新技能，指定名称和内容; "
-                        + "'edit' - 更新现有技能的内容; "
-                        + "'remove' - 按名称删除技能",
-                new String[]{"list", "invoke", "search", "install", "create", "edit", "remove"}));
-        properties.put("name", buildParam("string", "技能名称（invoke、create、edit、remove 操作必需）"));
-        properties.put("query", buildParam("string", "搜索关键词，用于 search 和 search_install 操作（描述你需要的技能功能，例如 'pptx generation' 或 'weather forecast'）"));
-        properties.put("repo", buildParam("string",
-                "install 操作的安装来源，支持以下格式：\n"
-                        + "- GitHub 仓库：'owner/repo' 或 'owner/repo/skill-name'\n"
-                        + "- GitHub 完整 URL：'https://github.com/owner/repo'\n"
-                        + "- 压缩包 URL（.zip/.tar.gz）：'https://example.com/skill.zip|skill-name'（| 后为技能名）\n"
-                        + "- 压缩包 URL（文件名即技能名）：'https://example.com/my-skill.zip'"));
-        properties.put("content", buildParam("string",
-                "用于 create/edit 操作的 Markdown 格式技能内容。"
-                        + "应包含 YAML frontmatter（---\\nname: ...\\ndescription: ...\\n---）后跟技能指令。"));
-        properties.put("skill_description", buildParam("string", "技能的简短描述（创建新技能时使用）"));
+        
+        properties.put("action", Map.of(
+                "type", "string",
+                "description", "要执行的操作类型。\n"
+                        + "list: 列出所有已安装的技能（无需 name 参数）\n"
+                        + "invoke: 调用指定技能（必须提供 name 参数）\n"
+                        + "search: 搜索 GitHub 上的技能（需要 query 参数）\n"
+                        + "install: 安装新技能（需要 repo 参数）\n"
+                        + "create: 创建新技能（需要 name 和 content 参数）\n"
+                        + "edit: 编辑现有技能（需要 name 和 content 参数）\n"
+                        + "remove: 删除技能（需要 name 参数）",
+                "enum", new String[]{"list", "invoke", "search", "install", "create", "edit", "remove"}
+        ));
+        
+        properties.put("name", Map.of(
+                "type", "string",
+                "description", "技能名称。\n"
+                        + "对于 invoke 操作：指定要调用的技能名称（如 'weather'）\n"
+                        + "对于 create/edit/remove 操作：指定技能名称"
+        ));
+        
+        properties.put("query", Map.of(
+                "type", "string",
+                "description", "搜索关键词，用于 search 操作（如 'weather forecast' 或 'pptx generation'）"
+        ));
+        
+        properties.put("repo", Map.of(
+                "type", "string",
+                "description", "install 操作的安装来源，支持 GitHub 仓库或压缩包 URL"
+        ));
+        
+        properties.put("content", Map.of(
+                "type", "string",
+                "description", "create/edit 操作的技能内容（Markdown 格式）"
+        ));
+        
+        properties.put("skill_description", Map.of(
+                "type", "string",
+                "description", "技能的简短描述（创建新技能时使用）"
+        ));
 
         return Map.of(
                 "type", "object",
@@ -276,6 +300,17 @@ public class SkillsTool implements Tool {
 
         // 构建符合 Claude Code Skills 标准的响应格式
         StringBuilder result = new StringBuilder();
+        
+        // 添加明确的执行指令（放在最前面，确保 LLM 能看到）
+        result.append("## ⚠️ 重要：继续执行！\n\n");
+        result.append("**你已经成功获取了 '").append(skillName).append("' 技能的内容。现在你必须：**\n\n");
+        result.append("1. **阅读技能内容**：仔细阅读下面的技能指令，理解如何执行任务\n");
+        result.append("2. **提取用户参数**：从用户的原始消息中提取必要的参数（如城市名、日期等）\n");
+        result.append("3. **执行具体操作**：根据技能指令，调用相应的工具（如 exec、web_search 等）\n");
+        result.append("4. **返回结果**：将执行结果整理后返回给用户\n\n");
+        result.append("**不要在这里停止！** 调用 skills 工具只是获取指令，你还需要根据指令执行具体操作。\n\n");
+        result.append("---\n\n");
+        
         result.append("<skill-invocation>\n");
         result.append("<name>").append(skillName).append("</name>\n");
         result.append("<source>").append(location.source).append("</source>\n");
@@ -284,8 +319,14 @@ public class SkillsTool implements Tool {
         result.append("# Skill: ").append(skillName).append("\n\n");
         result.append(content);
         result.append("\n\n---\n\n");
-        result.append("**提示**: 如果技能指令中包含脚本执行，请使用上述 base-path 作为脚本的工作目录。\n");
-        result.append("例如: `exec(command='python3 ").append(location.basePath).append("/script.py')`");
+        result.append("## 📋 执行提醒\n\n");
+        result.append("**请再次确认：**\n");
+        result.append("- 你是否已经阅读了上面的技能指令？\n");
+        result.append("- 你是否已经从用户消息中提取了必要的参数？\n");
+        result.append("- 你是否需要调用其他工具（如 exec）来执行具体操作？\n\n");
+        result.append("**提示**: 如果技能指令中包含脚本执行，请使用 base-path 作为脚本的工作目录。\n");
+        result.append("例如: `exec(command='python3 ").append(location.basePath).append("/script.py')`\n\n");
+        result.append("**记住：你需要继续执行，不能在这里停止！**");
 
         return result.toString();
     }

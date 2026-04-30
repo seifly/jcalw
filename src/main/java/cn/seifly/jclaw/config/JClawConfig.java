@@ -9,10 +9,9 @@ import cn.seifly.jclaw.providers.LLMProvider;
 import cn.seifly.jclaw.security.SecurityGuard;
 import cn.seifly.jclaw.session.SessionManager;
 import cn.seifly.jclaw.skills.SkillsLoader;
-import cn.seifly.jclaw.springai.SpringAiProvider;
-import cn.seifly.jclaw.springai.SpringAiModelManager;
-import cn.seifly.jclaw.springai.SpringAiProviderFactory;
-import cn.seifly.jclaw.springai.ToolAdapter;
+import cn.seifly.jclaw.agentscope.AgentScopeProvider;
+import cn.seifly.jclaw.agentscope.AgentScopeModelManager;
+import cn.seifly.jclaw.agentscope.AgentScopeProviderFactory;
 import cn.seifly.jclaw.tools.*;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
@@ -58,13 +57,10 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
     
     @Autowired
-    private SpringAiModelManager springAiModelManager;
-    
-    @Autowired
-    private ToolAdapter toolAdapter;
+    private AgentScopeModelManager agentScopeModelManager;
     
     @Autowired(required = false)
-    private SpringAiProviderFactory springAiProviderFactory;
+    private AgentScopeProviderFactory agentScopeProviderFactory;
     
     @Override
     public void setEnvironment(Environment environment) {
@@ -111,21 +107,21 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
             "wechatEnabled", config.getChannels().getWechat().isEnabled()
         ));
         
-        initializeSpringAiModels();
+        initializeAgentScopeModels();
     }
     
-    private void initializeSpringAiModels() {
-        if (springAiProviderFactory != null) {
+    private void initializeAgentScopeModels() {
+        if (agentScopeProviderFactory != null) {
             try {
-                springAiProviderFactory.initializeFromConfig(config);
-                logger.info("Spring AI models initialized from config");
+                agentScopeProviderFactory.initializeFromConfig(config);
+                logger.info("AgentScope models initialized from config");
             } catch (Exception e) {
-                logger.warn("Failed to initialize Spring AI models", Map.of(
+                logger.warn("Failed to initialize AgentScope models", Map.of(
                     "error", e.getMessage()
                 ));
             }
         } else {
-            logger.warn("SpringAiProviderFactory not available, falling back to HTTPProvider");
+            logger.warn("AgentScopeProviderFactory not available, falling back to HTTPProvider");
         }
     }
     
@@ -691,29 +687,29 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     /**
      * 创建 LLM Provider
      * 
-     * 优先使用 Spring AI 实现，如果不可用则回退到 HTTPProvider。
+     * 优先使用 AgentScope 实现，如果不可用则回退到 HTTPProvider。
      * 
      * @param config 配置对象
      * @return LLMProvider 实例
      */
     private LLMProvider createProvider(Config config) {
-        if (springAiProviderFactory != null) {
+        if (agentScopeProviderFactory != null) {
             String defaultModel = config.getAgent().getModel();
-            if (springAiProviderFactory.hasModel(defaultModel)) {
+            if (agentScopeProviderFactory.hasModel(defaultModel)) {
                 try {
-                    SpringAiProvider provider = springAiProviderFactory.createDefaultProvider();
-                    logger.info("Created Spring AI provider", Map.of(
+                    AgentScopeProvider provider = agentScopeProviderFactory.createDefaultProvider();
+                    logger.info("Created AgentScope provider", Map.of(
                             "model", defaultModel,
                             "provider", provider.getName()
                     ));
                     return provider;
                 } catch (Exception e) {
-                    logger.warn("Failed to create Spring AI provider, falling back to HTTPProvider", Map.of(
+                    logger.warn("Failed to create AgentScope provider, falling back to HTTPProvider", Map.of(
                             "error", e.getMessage()
                     ));
                 }
             } else {
-                logger.warn("Model not registered in Spring AI, falling back to HTTPProvider", Map.of(
+                logger.warn("Model not registered in AgentScope, falling back to HTTPProvider", Map.of(
                         "model", defaultModel
                 ));
             }

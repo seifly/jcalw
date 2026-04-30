@@ -8,7 +8,7 @@ import java.util.Optional;
 
 /**
  * LLM 提供商配置类
- * 支持多个 LLM 提供商：OpenRouter、Anthropic、OpenAI、Gemini、智谱、DashScope、Ollama
+ * 支持多个 LLM 提供商：OpenRouter、Anthropic、OpenAI、Gemini、智谱、DashScope、Ollama、DeepSeek
  */
 public class ProvidersConfig {
 
@@ -19,6 +19,7 @@ public class ProvidersConfig {
     private ProviderConfig gemini;
     private ProviderConfig dashscope;
     private ProviderConfig ollama;
+    private ProviderConfig deepseek;
 
     public ProvidersConfig() {
         this.openrouter = new ProviderConfig(getDefaultApiBase("openrouter"));
@@ -28,6 +29,7 @@ public class ProvidersConfig {
         this.gemini = new ProviderConfig(getDefaultApiBase("gemini"));
         this.dashscope = new ProviderConfig(getDefaultApiBase("dashscope"));
         this.ollama = new ProviderConfig(getDefaultApiBase("ollama"));
+        this.deepseek = new ProviderConfig(getDefaultApiBase("deepseek"));
     }
 
     // Getters and Setters
@@ -89,6 +91,14 @@ public class ProvidersConfig {
         this.ollama = ollama;
     }
 
+    public ProviderConfig getDeepseek() {
+        return deepseek;
+    }
+
+    public void setDeepseek(ProviderConfig deepseek) {
+        this.deepseek = deepseek;
+    }
+
     /**
      * 获取所有 Provider，按优先级排序
      */
@@ -96,7 +106,7 @@ public class ProvidersConfig {
     public List<ProviderConfig> getAllProviders() {
         return Arrays.asList(
                 openrouter, anthropic, openai, gemini,
-                zhipu, dashscope, ollama
+                zhipu, dashscope, ollama, deepseek
         );
     }
 
@@ -129,7 +139,8 @@ public class ProvidersConfig {
                 new ProviderWithName("anthropic", anthropic),
                 new ProviderWithName("zhipu", zhipu),
                 new ProviderWithName("dashscope", dashscope),
-                new ProviderWithName("gemini", gemini)
+                new ProviderWithName("gemini", gemini),
+                new ProviderWithName("deepseek", deepseek)
         );
 
         return providers.stream()
@@ -172,6 +183,7 @@ public class ProvidersConfig {
             case "dashscope"  -> dashscope;
             case "gemini"     -> gemini;
             case "ollama"     -> ollama;
+            case "deepseek"   -> deepseek;
             default           -> null;
         };
     }
@@ -187,6 +199,7 @@ public class ProvidersConfig {
         if (provider == zhipu) return "zhipu";
         if (provider == dashscope) return "dashscope";
         if (provider == ollama) return "ollama";
+        if (provider == deepseek) return "deepseek";
         return "unknown";
     }
 
@@ -209,6 +222,8 @@ public class ProvidersConfig {
                 return "https://dashscope.aliyuncs.com/compatible-mode/v1";
             case "ollama":
                 return "http://localhost:11434/v1";
+            case "deepseek":
+                return "https://api.deepseek.com";
             default:
                 return "https://openrouter.ai/api/v1";
         }

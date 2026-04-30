@@ -85,7 +85,10 @@ public class AgentRuntime {
 
         this.tools = new ToolRegistry();
         this.sessions = new SessionManager(Paths.get(workspace, "sessions").toString());
-        this.contextBuilder = new ContextBuilder(workspace);
+        
+        // 从配置中获取内置技能目录
+        String builtinSkills = config.getAgent() != null ? config.getAgent().getBuiltinSkills() : null;
+        this.contextBuilder = new ContextBuilder(workspace, null, builtinSkills);
         this.contextBuilder.setTools(this.tools);
 
         this.providerManager = new ProviderManager(config, contextBuilder, tools, sessions, workspace);
@@ -103,6 +106,28 @@ public class AgentRuntime {
         }
 
         initializeMCPServers();
+        
+        // 显式加载技能，确保在启动时就绪
+        loadSkills();
+    }
+
+    /**
+     * 显式加载所有技能
+     * <p>
+     * 此方法在启动时调用，确保所有技能（包括内置技能）被加载并准备就绪。
+     * 这对于需要从文件系统目录（而非 classpath）加载技能的场景特别重要。
+     */
+    private void loadSkills() {
+        try {
+            Map<String, Object> skillsInfo = contextBuilder.getSkillsInfo();
+            logger.info("技能加载完成", Map.of(
+                    "total_count", skillsInfo.get("total"),
+                    "available_count", skillsInfo.get("available"),
+                    "skill_names", skillsInfo.get("names")
+            ));
+        } catch (Exception e) {
+            logger.warn("技能加载过程中出现警告", Map.of("error", e.getMessage()));
+        }
     }
 
     // ==================== Provider 管理 ====================

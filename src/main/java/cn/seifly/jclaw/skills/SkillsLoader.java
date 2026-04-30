@@ -1,5 +1,7 @@
 package cn.seifly.jclaw.skills;
 
+import cn.seifly.jclaw.logger.JClawLogger;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,8 +26,14 @@ import java.util.stream.Collectors;
  * 技能文件采用 Markdown 格式，通过 YAML 前置元数据定义名称和描述。
  * <p>
  * 加载优先级：workspace > global > builtin
+ * <p>
+ * 内置技能加载逻辑：
+ * 1. 如果提供了 builtinSkills 目录路径，则优先从该目录加载
+ * 2. 否则，从 classpath 加载硬编码的技能列表
  */
 public class SkillsLoader {
+
+    private static final JClawLogger logger = JClawLogger.getLogger("skills");
 
     /**
      * 工作空间根路径
@@ -41,6 +49,11 @@ public class SkillsLoader {
      * 全局技能目录路径
      */
     private final String globalSkills;
+
+    /**
+     * 内置技能目录路径（可选，用于从文件系统加载内置技能）
+     */
+    private final String builtinSkills;
 
     /**
      * 内置技能名称列表（从 classpath 加载）
@@ -59,12 +72,19 @@ public class SkillsLoader {
      *
      * @param workspace     工作空间根路径
      * @param globalSkills  全局技能目录路径
-     * @param builtinSkills 内置技能目录路径（已废弃，内置技能从 classpath 加载）
+     * @param builtinSkills 内置技能目录路径（可选，用于从文件系统加载内置技能）
      */
     public SkillsLoader(String workspace, String globalSkills, String builtinSkills) {
         this.workspace = workspace;
         this.workspaceSkills = Paths.get(workspace, "skills").toString();
         this.globalSkills = globalSkills;
+        this.builtinSkills = builtinSkills;
+        
+        logger.info("SkillsLoader 初始化", Map.of(
+                "workspace", workspace,
+                "global_skills", globalSkills != null ? globalSkills : "null",
+                "builtin_skills", builtinSkills != null ? builtinSkills : "null"
+        ));
     }
 
     /**
@@ -77,26 +97,64 @@ public class SkillsLoader {
 
         // 工作空间技能（最高优先级）
         if (workspaceSkills != null) {
+            int beforeCount = skills.size();
             addSkillsFromDir(skills, workspaceSkills, "workspace");
+            logger.debug("加载工作空间技能", Map.of(
+                    "directory", workspaceSkills,
+                    "loaded_count", skills.size() - beforeCount
+            ));
         }
 
         // 全局技能
         if (globalSkills != null) {
+            int beforeCount = skills.size();
             addSkillsFromDir(skills, globalSkills, "global");
+            logger.debug("加载全局技能", Map.of(
+                    "directory", globalSkills,
+                    "loaded_count", skills.size() - beforeCount
+            ));
         }
 
-        // 内置技能（从 classpath 加载）
+        // 内置技能
+        int beforeCount = skills.size();
         addBuiltinSkills(skills);
+        logger.debug("加载内置技能", Map.of(
+                "loaded_count", skills.size() - beforeCount,
+                "source", builtinSkills != null ? "filesystem: " + builtinSkills : "classpath"
+        ));
+
+        logger.info("技能加载完成", Map.of(
+                "total_count", skills.size(),
+                "skill_names", skills.stream().map(SkillInfo::getName).collect(Collectors.joining(", "))
+        ));
 
         return skills;
     }
 
     /**
-     * 从 classpath 添加内置技能
+     * 添加内置技能
+     * <p>
+     * 加载逻辑：
+     * 1. 如果提供了 builtinSkills 目录路径，则从该目录扫描并加载所有技能
+     * 2. 否则，从 classpath 加载硬编码的技能列表
      *
      * @param skills 技能列表
      */
     private void addBuiltinSkills(List<SkillInfo> skills) {
+        // 如果提供了 builtinSkills 目录路径，则优先从该目录加载
+        if (builtinSkills != null && !builtinSkills.isEmpty()) {
+            Path dir = Paths.get(builtinSkills);
+            if (Files.exists(dir) && Files.isDirectory(dir)) {
+                logger.info("从文件系统加载内置技能", Map.of("directory", builtinSkills));
+                addSkillsFromDir(skills, builtinSkills, "builtin");
+                return;
+            } else {
+                logger.warn("内置技能目录不存在，将从 classpath 加载", Map.of("directory", builtinSkills));
+            }
+        }
+
+        // 从 classpath 加载硬编码的技能列表（回退方案）
+        logger.info("从 classpath 加载内置技能");
         for (String skillName : BUILTIN_SKILL_NAMES) {
             // 检查是否已存在更高优先级的同名技能
             boolean exists = skills.stream()
@@ -118,6 +176,9 @@ public class SkillsLoader {
                     }
 
                     skills.add(info);
+                    logger.debug("从 classpath 加载技能", Map.of("skill_name", skillName));
+                } else {
+                    logger.warn("无法从 classpath 加载技能", Map.of("skill_name", skillName));
                 }
             }
         }
@@ -185,19 +246,37 @@ public class SkillsLoader {
      * 按名称加载技能，返回去除 YAML 前置元数据后的内容
      */
     public String loadSkill(String name) {
+        logger.debug("加载技能", Map.of("skill_name", name));
+
         // 优先尝试工作空间技能
         String content = loadSkillFromDir(workspaceSkills, name);
-        if (content != null) return content;
+        if (content != null) {
+            logger.debug("从工作空间加载技能", Map.of("skill_name", name, "directory", workspaceSkills));
+            return content;
+        }
 
         // 尝试全局技能
         content = loadSkillFromDir(globalSkills, name);
-        if (content != null) return content;
+        if (content != null) {
+            logger.debug("从全局目录加载技能", Map.of("skill_name", name, "directory", globalSkills));
+            return content;
+        }
+
+        // 尝试从 builtinSkills 目录加载（如果提供了）
+        content = loadSkillFromDir(builtinSkills, name);
+        if (content != null) {
+            logger.debug("从内置技能目录加载技能", Map.of("skill_name", name, "directory", builtinSkills));
+            return content;
+        }
 
         // 尝试内置技能（从 classpath 加载）
         content = loadBuiltinSkillContent(name);
         if (content != null) {
+            logger.debug("从 classpath 加载技能", Map.of("skill_name", name));
             return stripFrontmatter(content);
         }
+
+        logger.warn("无法加载技能", Map.of("skill_name", name));
         return null;
     }
 
@@ -305,14 +384,32 @@ public class SkillsLoader {
      * 将 builtin 技能从 classpath 解压到文件系统缓存目录。
      * <p>
      * 当 builtin 技能被 invoke 时，需要一个真实的文件系统路径来执行脚本。
-     * 此方法将 classpath 中的技能资源复制到 workspace/.builtin-cache/{skillName}/ 目录下，
-     * 返回该目录的绝对路径。如果缓存已存在且 SKILL.md 文件完好，则直接返回缓存路径。
+     * 此方法的处理逻辑：
+     * 1. 如果技能是从 builtinSkills 目录加载的（文件系统路径），直接返回该目录路径
+     * 2. 否则，将 classpath 中的技能资源复制到 workspace/.builtin-cache/{skillName}/ 目录下
      *
      * @param skillName 技能名称
      * @return 解压后的文件系统路径，失败时返回 null
      */
     public String extractBuiltinSkillToFileSystem(String skillName) {
+        logger.info("解压内置技能到文件系统", Map.of("skill_name", skillName));
+
+        // 首先检查是否从 builtinSkills 目录加载（如果提供了）
+        if (builtinSkills != null && !builtinSkills.isEmpty()) {
+            Path skillDir = Paths.get(builtinSkills, skillName);
+            Path skillFile = skillDir.resolve("SKILL.md");
+            if (Files.exists(skillFile)) {
+                logger.info("技能已在文件系统中，直接返回路径", Map.of(
+                        "skill_name", skillName,
+                        "path", skillDir.toAbsolutePath().toString()
+                ));
+                return skillDir.toAbsolutePath().toString();
+            }
+        }
+
+        // 检查是否在硬编码的内置技能列表中
         if (!BUILTIN_SKILL_NAMES.contains(skillName)) {
+            logger.warn("技能不在内置技能列表中", Map.of("skill_name", skillName));
             return null;
         }
 
@@ -321,6 +418,7 @@ public class SkillsLoader {
 
         // 如果缓存已存在，直接返回
         if (Files.exists(cachedSkillFile)) {
+            logger.info("技能缓存已存在", Map.of("skill_name", skillName, "cache_dir", cacheDir.toString()));
             return cacheDir.toAbsolutePath().toString();
         }
 
@@ -332,6 +430,7 @@ public class SkillsLoader {
             // 复制 SKILL.md
             String skillContent = loadBuiltinSkillContent(skillName);
             if (skillContent == null) {
+                logger.warn("无法从 classpath 加载技能内容", Map.of("skill_name", skillName));
                 return null;
             }
             Files.writeString(cachedSkillFile, skillContent);
@@ -341,8 +440,14 @@ public class SkillsLoader {
                 extractBuiltinSubdirectory(resourceBase + subdir + "/", cacheDir.resolve(subdir));
             }
 
+            logger.info("技能已从 classpath 解压到缓存目录", Map.of(
+                    "skill_name", skillName,
+                    "cache_dir", cacheDir.toAbsolutePath().toString()
+            ));
+
             return cacheDir.toAbsolutePath().toString();
         } catch (IOException e) {
+            logger.error("解压技能失败", Map.of("skill_name", skillName, "error", e.getMessage()));
             return null;
         }
     }
