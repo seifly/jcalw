@@ -160,6 +160,9 @@ public class ChannelsController {
 
     /**
      * 获取微信扫码登录状态。
+     * <p>
+     * 当登录状态为 "failed" 或 "expired" 时，自动重启通道以重新生成二维码。
+     * </p>
      */
     @GetMapping("/wechat/login")
     public ResponseEntity<Map<String, Object>> getWechatLoginStatus() {
@@ -175,6 +178,34 @@ public class ChannelsController {
         }
 
         Channel channel = channelManager.getChannel("wechat").orElse(null);
+        
+        if (channel instanceof WechatChannel wechatChannel) {
+            Map<String, Object> currentStatus = wechatChannel.getLoginStatus();
+            String state = (String) currentStatus.get("state");
+            String botId = (String) currentStatus.get("botId");
+            Boolean loggedIn = (Boolean) currentStatus.get("loggedIn");
+            
+            boolean needRestart = "failed".equals(state) 
+                    || "expired".equals(state)
+                    || (loggedIn != null && loggedIn && (botId == null || botId.isEmpty()));
+            
+            if (needRestart) {
+                logger.info("检测到微信登录状态异常（state={}, botId={}），正在重启通道以重新生成二维码", 
+                        Map.of("state", state, "botId", botId));
+                try {
+                    config.getChannels().getWechat().setResumeContextJson(null);
+                    WebUtils.saveConfig(config, logger);
+                    logger.info("已清除微信 ResumeContext 配置");
+                    
+                    channelManager.stopChannel("wechat");
+                    channelManager.unregisterChannel("wechat");
+                    channel = null;
+                } catch (Exception e) {
+                    logger.warn("停止微信通道失败", Map.of("error", e.getMessage()));
+                }
+            }
+        }
+
         if (channel == null) {
             try {
                 channel = channelManager.ensureWechatChannel(config.getChannels().getWechat());
