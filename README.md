@@ -281,7 +281,7 @@ Web 控制台支持用户名密码登录认证，初始用户名密码为 `admin
 ---
 
 ### 🔗 参考项目
-- [mateclaw](https://github.com/matevip/mateclaw) — MateClaw is the whole widget. One deployment. Reasoning, knowledge, memory, tools, channels — built together, not bolted on.
+- [mateclaw](https://github.com/matevip/mateclaw) — MateClaw is the whole widget. One deployment. Reasoning, knowledge, memory, tools...
 - [javaClaw](https://github.com/laixiaoxing2026/javaClaw) — 参照 openClaw 原理使用 Java 8 重写的超轻量个人 AI 助手
 - [TinyClaw](https://github.com/Leavesfly/TinyClaw) — 轻量级 AI Agent 框架，提供多模型支持和工具集成
 
