@@ -199,13 +199,14 @@ public class WechatChannel extends BaseChannel {
 
     public Map<String, Object> getLoginStatus() {
         Map<String, Object> status = new HashMap<>();
-        boolean loggedIn = client != null && client.isLoggedIn();
+        boolean clientLoggedIn = client != null && client.isLoggedIn();
         String currentState = loginState.get();
         String currentBotId = botId.get();
         
         boolean isFailed = "failed".equals(currentState) || "expired".equals(currentState);
+        boolean isWaitingResumeLogin = "waiting_resume_login".equals(currentState);
         boolean isBotIdEmpty = currentBotId == null || currentBotId.isEmpty();
-        boolean isLoginIncomplete = loggedIn && isBotIdEmpty;
+        boolean isLoginIncomplete = clientLoggedIn && isBotIdEmpty && !isWaitingResumeLogin;
         
         if (isFailed || isLoginIncomplete) {
             status.put("loggedIn", false);
@@ -217,8 +218,9 @@ public class WechatChannel extends BaseChannel {
                 status.put("error", loginError.get());
             }
         } else {
-            status.put("loggedIn", loggedIn);
-            status.put("state", loggedIn ? "logged_in" : currentState);
+            boolean effectiveLoggedIn = !isWaitingResumeLogin && clientLoggedIn;
+            status.put("loggedIn", effectiveLoggedIn);
+            status.put("state", isWaitingResumeLogin ? currentState : (effectiveLoggedIn ? "logged_in" : currentState));
             status.put("error", loginError.get());
         }
         
@@ -255,6 +257,28 @@ public class WechatChannel extends BaseChannel {
 
         messagePump.scheduleWithFixedDelay(() -> {
             String currentState = loginState.get();
+            String currentBotId = botId.get();
+            boolean botIdEmpty = currentBotId == null || currentBotId.isEmpty();
+            
+            if ("waiting_resume_login".equals(currentState)) {
+                if (client != null && client.isLoggedIn()) {
+                    if (!botIdEmpty) {
+                        loginState.set("logged_in");
+                        loginError.set("");
+                        qrCodeContent.set("");
+                        qrCodeImage.set("");
+                        logger.info("微信使用 ResumeContext 恢复登录成功（状态已同步）", Map.of("bot_id", currentBotId));
+                        exportAndSaveResumeContext();
+                    } else {
+                        loginState.set("failed");
+                        loginError.set("微信使用 ResumeContext 恢复登录成功但无法获取 botId，请重新扫码登录");
+                        logger.error("微信使用 ResumeContext 恢复登录成功但无法获取 botId");
+                        config.setResumeContextJson(null);
+                        saveConfig();
+                    }
+                }
+            }
+            
             if (client == null || !client.isLoggedIn() 
                     || "failed".equals(currentState) || "expired".equals(currentState)) {
                 return;
@@ -385,6 +409,12 @@ public class WechatChannel extends BaseChannel {
                 config.setResumeContextJson(null);
                 saveConfig();
                 return false;
+            }
+            
+            String savedBotId = extractBotIdFromContextMap(contextMap);
+            if (savedBotId != null && !savedBotId.isEmpty()) {
+                botId.set(savedBotId);
+                logger.info("从 ResumeContext 中提取到 botId", Map.of("bot_id", savedBotId));
             }
             
             ILinkConfig ilinkConfig = ILinkConfig.builder()
@@ -668,6 +698,53 @@ public class WechatChannel extends BaseChannel {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /**
+     * 从 ResumeContext Map 中提取 botId。
+     * 
+     * ResumeContext 包含 LoginContext，而 LoginContext 包含 botId。
+     * 此方法递归查找常见的字段名。
+     * 
+     * @param contextMap ResumeContext 的 Map 表示
+     * @return 找到的 botId，如果没找到返回 null
+     */
+    @SuppressWarnings("unchecked")
+    private String extractBotIdFromContextMap(Map<String, Object> contextMap) {
+        if (contextMap == null || contextMap.isEmpty()) {
+            return null;
+        }
+        
+        if (contextMap.containsKey("botId")) {
+            Object value = contextMap.get("botId");
+            if (value instanceof String str && !str.isEmpty()) {
+                return str;
+            }
+        }
+        
+        if (contextMap.containsKey("loginContext")) {
+            Object loginContextObj = contextMap.get("loginContext");
+            if (loginContextObj instanceof Map<?, ?> loginContextMap) {
+                if (loginContextMap.containsKey("botId")) {
+                    Object value = loginContextMap.get("botId");
+                    if (value instanceof String str && !str.isEmpty()) {
+                        return str;
+                    }
+                }
+            }
+        }
+        
+        for (Map.Entry<String, Object> entry : contextMap.entrySet()) {
+            Object value = entry.getValue();
+            if (value instanceof Map<?, ?> nestedMap) {
+                String nestedBotId = extractBotIdFromContextMap((Map<String, Object>) nestedMap);
+                if (nestedBotId != null && !nestedBotId.isEmpty()) {
+                    return nestedBotId;
+                }
+            }
+        }
+        
+        return null;
     }
 
     /**
