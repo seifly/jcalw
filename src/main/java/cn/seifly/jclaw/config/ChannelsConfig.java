@@ -282,12 +282,16 @@ public class ChannelsConfig {
         private boolean enabled;
         private int pollIntervalMs;
         private int loginTimeoutSeconds;
+        private String botToken;
+        private String resumeContextJson;
         private List<String> allowFrom;
 
         public WechatConfig() {
             this.enabled = false;
             this.pollIntervalMs = 1000;
             this.loginTimeoutSeconds = 180;
+            this.botToken = null;
+            this.resumeContextJson = null;
             this.allowFrom = new ArrayList<>();
         }
 
@@ -313,6 +317,22 @@ public class ChannelsConfig {
 
         public void setLoginTimeoutSeconds(int loginTimeoutSeconds) {
             this.loginTimeoutSeconds = loginTimeoutSeconds;
+        }
+
+        public String getBotToken() {
+            return botToken;
+        }
+
+        public void setBotToken(String botToken) {
+            this.botToken = botToken;
+        }
+
+        public String getResumeContextJson() {
+            return resumeContextJson;
+        }
+
+        public void setResumeContextJson(String resumeContextJson) {
+            this.resumeContextJson = resumeContextJson;
         }
 
         public List<String> getAllowFrom() {

@@ -133,7 +133,7 @@ public class ChannelManager {
     private void initWechatChannel(ChannelsConfig channelsConfig) {
         if (channelsConfig.getWechat().isEnabled()) {
             try {
-                Channel wechat = new WechatChannel(channelsConfig.getWechat(), bus);
+                Channel wechat = new WechatChannel(config, channelsConfig.getWechat(), bus);
                 channels.put("wechat", wechat);
                 logger.info("Wechat channel enabled successfully");
             } catch (Exception e) {
@@ -383,7 +383,7 @@ public class ChannelManager {
             return wechatChannel;
         }
 
-        WechatChannel wechat = new WechatChannel(wechatConfig, bus);
+        WechatChannel wechat = new WechatChannel(config, wechatConfig, bus);
         channels.put("wechat", wechat);
         if (dispatchRunning) {
             startDispatcherForChannel("wechat");
@@ -457,6 +457,77 @@ public class ChannelManager {
      */
     public void unregisterChannel(String name) {
         channels.remove(name);
+    }
+    
+    /**
+     * 启动指定的通道
+     * 
+     * 根据通道名称启动已注册的通道实例。
+     * 
+     * @param name 通道名称
+     * @return true 表示启动成功，false 表示通道不存在或已在运行
+     */
+    public boolean startChannel(String name) {
+        Channel channel = channels.get(name);
+        if (channel == null) {
+            logger.warn("Channel not found, cannot start", Map.of("channel", name));
+            return false;
+        }
+        
+        if (channel.isRunning()) {
+            logger.info("Channel is already running", Map.of("channel", name));
+            return false;
+        }
+        
+        // 如果调度器正在运行，为该通道启动调度线程
+        if (dispatchRunning) {
+            startDispatcherForChannel(name);
+        }
+        
+        try {
+            channel.start();
+            logger.info("Channel started", Map.of("channel", name));
+            return true;
+        } catch (Exception e) {
+            logger.error("Failed to start channel", Map.of(
+                    "channel", name,
+                    "error", e.getMessage()
+            ));
+            return false;
+        }
+    }
+    
+    /**
+     * 停止指定的通道
+     * 
+     * 根据通道名称停止已运行的通道实例。
+     * 
+     * @param name 通道名称
+     * @return true 表示停止成功，false 表示通道不存在或未在运行
+     */
+    public boolean stopChannel(String name) {
+        Channel channel = channels.get(name);
+        if (channel == null) {
+            logger.warn("Channel not found, cannot stop", Map.of("channel", name));
+            return false;
+        }
+        
+        if (!channel.isRunning()) {
+            logger.info("Channel is not running", Map.of("channel", name));
+            return false;
+        }
+        
+        try {
+            channel.stop();
+            logger.info("Channel stopped", Map.of("channel", name));
+            return true;
+        } catch (Exception e) {
+            logger.error("Failed to stop channel", Map.of(
+                    "channel", name,
+                    "error", e.getMessage()
+            ));
+            return false;
+        }
     }
     
     /**
