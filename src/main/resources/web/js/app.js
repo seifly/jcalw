@@ -73,7 +73,7 @@ class TinyClawConsole {
         const errorDiv = document.getElementById('loginError');
         
         if (!username || !password) {
-            errorDiv.textContent = 'Please enter username and password';
+            errorDiv.textContent = '请输入用户名和密码';
             errorDiv.style.display = 'block';
             return;
         }
@@ -94,13 +94,13 @@ class TinyClawConsole {
                 this.hideLoginOverlay();
                 this.loadInitialPage();
             } else {
-                errorDiv.textContent = data.error || 'Invalid username or password';
+                errorDiv.textContent = data.error || '用户名或密码无效';
                 errorDiv.style.display = 'block';
                 document.getElementById('loginPassword').value = '';
                 document.getElementById('loginPassword').focus();
             }
         } catch (error) {
-            errorDiv.textContent = 'Connection failed. Please try again.';
+            errorDiv.textContent = '连接失败，请重试。';
             errorDiv.style.display = 'block';
         }
     }
@@ -172,17 +172,17 @@ class TinyClawConsole {
 
         // Update title
         const titles = {
-            chat: 'Chat',
-            channels: 'Channels',
-            sessions: 'Sessions',
-            cron: 'Cron Jobs',
-            persona: 'Persona',
-            workspace: 'Workspace',
-            skills: 'Skills',
-            mcp: 'MCP Servers',
-            models: 'Models',
-            environments: 'Environments',
-            'token-usage': 'Token Usage'
+            chat: '聊天',
+            channels: '渠道',
+            sessions: '会话',
+            cron: '定时任务',
+            persona: '角色',
+            workspace: '工作区',
+            skills: '技能',
+            mcp: 'MCP服务器',
+            models: '模型',
+            environments: '环境',
+            'token-usage': 'Token使用'
         };
         document.getElementById('pageTitle').textContent = titles[page] || page;
 
@@ -275,8 +275,8 @@ class TinyClawConsole {
         return `
             <div class="chat-welcome">
                 <div class="welcome-icon">🦞</div>
-                <h2>Hello, how can I help you today?</h2>
-                <p>I am a helpful assistant that can help you with your questions.</p>
+                <h2>你好，今天我能帮你什么？</h2>
+                <p>我是一个乐于助人的助手，可以帮你解决问题。</p>
                 <div class="quick-prompts">
                     <div class="quick-prompt" data-prompt="你有哪些技能？">
                         <span class="prompt-icon">✦</span>
@@ -793,7 +793,7 @@ class TinyClawConsole {
             
             const historyDiv = document.getElementById('chatHistory');
             if (webSessions.length === 0) {
-                historyDiv.innerHTML = '<div class="chat-history-empty">No chat history</div>';
+                historyDiv.innerHTML = '<div class="chat-history-empty">暂无聊天历史</div>';
                 return;
             }
 
@@ -802,7 +802,7 @@ class TinyClawConsole {
             const groups = new Map(); // dateLabel -> sessions[]
             for (const session of webSessions) {
                 const timestamp = parseInt(session.key.substring(4)) || 0;
-                const dateLabel = timestamp ? this.formatDateLabel(new Date(timestamp)) : 'Unknown';
+                const dateLabel = timestamp ? this.formatDateLabel(new Date(timestamp)) : '未知';
                 if (!groups.has(dateLabel)) groups.set(dateLabel, []);
                 groups.get(dateLabel).push(session);
             }
@@ -872,11 +872,11 @@ class TinyClawConsole {
         const today = new Date();
         const todayStr = `${today.getFullYear()}/${today.getMonth() + 1}/${today.getDate()}`;
         const dateStr = `${date.getFullYear()}/${date.getMonth() + 1}/${date.getDate()}`;
-        if (dateStr === todayStr) return 'Today';
+        if (dateStr === todayStr) return '今天';
         const yesterday = new Date(today);
         yesterday.setDate(today.getDate() - 1);
         const yesterdayStr = `${yesterday.getFullYear()}/${yesterday.getMonth() + 1}/${yesterday.getDate()}`;
-        if (dateStr === yesterdayStr) return 'Yesterday';
+        if (dateStr === yesterdayStr) return '昨天';
         return dateStr;
     }
 
@@ -922,7 +922,7 @@ class TinyClawConsole {
      * 删除聊天会话
      */
     async deleteChatSession(key) {
-        if (!confirm('Delete this chat?')) return;
+        if (!confirm('删除此聊天？')) return;
         try {
             await this.authFetch(`/api/sessions/${encodeURIComponent(key)}`, { method: 'DELETE' });
             // 清除该会话缓存的标题
@@ -1473,16 +1473,16 @@ class TinyClawConsole {
                 <div class="card" data-channel="${ch.name}">
                     <div class="card-header">
                         <span class="badge ${ch.enabled ? 'badge-success' : 'badge-disabled'}">
-                            ${ch.running ? 'Running' : (ch.enabled ? 'Enabled' : 'Disabled')}
+                            ${ch.running ? '运行中' : (ch.enabled ? '已启用' : '已禁用')}
                         </span>
                         <span class="card-title">${this.capitalize(ch.name)}</span>
                     </div>
                     <div class="card-body">
-                        <p>Bot Prefix: Not set</p>
-                        <p>Click card to edit</p>
+                        <p>机器人前缀：未设置</p>
+                        <p>点击卡片编辑</p>
                     </div>
                     <div class="card-footer">
-                        <button class="btn btn-text" onclick="app.editChannel('${ch.name}')">⚙️ Settings</button>
+                        <button class="btn btn-text" onclick="app.editChannel('${ch.name}')">⚙️ 设置</button>
                     </div>
                 </div>
             `).join('');
@@ -1497,12 +1497,12 @@ class TinyClawConsole {
             const channel = await response.json();
             const isWechat = name === 'wechat';
 
-            this.showModal(`Edit ${this.capitalize(name)}`, `
+            this.showModal(`编辑${this.capitalize(name)}`, `
                 <div class="form-group" ${isWechat ? 'style="display:none"' : ''}>
-                    <label>Enabled</label>
+                    <label>已启用</label>
                     <select class="form-control" id="modalEnabled">
-                        <option value="true" ${channel.enabled || isWechat ? 'selected' : ''}>Yes</option>
-                        <option value="false" ${!channel.enabled && !isWechat ? 'selected' : ''}>No</option>
+                        <option value="true" ${channel.enabled || isWechat ? 'selected' : ''}>是</option>
+                        <option value="false" ${!channel.enabled && !isWechat ? 'selected' : ''}>否</option>
                     </select>
                 </div>
                 ${this.getChannelFields(name, channel)}
@@ -1522,10 +1522,10 @@ class TinyClawConsole {
                 this.loadChannels();
             });
             if (isWechat) {
-                document.getElementById('modalConfirm').textContent = 'Refresh QR';
+                document.getElementById('modalConfirm').textContent = '刷新二维码';
                 this.startWechatLoginPolling();
             } else {
-                document.getElementById('modalConfirm').textContent = 'Confirm';
+                document.getElementById('modalConfirm').textContent = '确认';
             }
         } catch (error) {
             console.error('Failed to load channel:', error);
@@ -1623,7 +1623,7 @@ class TinyClawConsole {
             const status = await response.json();
 
             if (status.loggedIn) {
-                stateEl.textContent = status.botId ? `Logged in: ${status.botId}` : 'Logged in';
+                stateEl.textContent = status.botId ? `已登录：${status.botId}` : '已登录';
                 qrWrap.innerHTML = '';
                 this.stopWechatLoginPolling();
                 setTimeout(() => {
@@ -1634,24 +1634,24 @@ class TinyClawConsole {
             }
 
             const stateText = {
-                not_started: 'Starting WeChat login...',
-                waiting_scan: 'Scan this QR code with WeChat.',
-                expired: 'QR code expired. Restart the WeChat channel to refresh it.',
-                failed: 'Wechat login failed.',
-                stopped: 'Wechat channel stopped.',
-                unavailable: 'Wechat channel status is unavailable.'
-            }[status.state] || 'Waiting for WeChat login...';
+                not_started: '正在启动微信登录...',
+                waiting_scan: '用微信扫描此二维码。',
+                expired: '二维码已过期。重启微信渠道以刷新。',
+                failed: '微信登录失败。',
+                stopped: '微信渠道已停止。',
+                unavailable: '微信渠道状态不可用。'
+            }[status.state] || '等待微信登录...';
 
             stateEl.textContent = status.error ? `${stateText} ${status.error}` : stateText;
             if (status.qrCodeImage) {
-                qrWrap.innerHTML = `<img class="wechat-qr" src="${status.qrCodeImage}" alt="Wechat login QR code">`;
+                qrWrap.innerHTML = `<img class="wechat-qr" src="${status.qrCodeImage}" alt="微信登录二维码">`;
             } else if (status.qrCodeContent) {
                 qrWrap.innerHTML = `<textarea class="form-control wechat-qr-content" readonly>${this.escapeHtml(status.qrCodeContent)}</textarea>`;
             } else {
                 qrWrap.innerHTML = '';
             }
         } catch (error) {
-            stateEl.textContent = 'Failed to load WeChat login status.';
+            stateEl.textContent = '加载微信登录状态失败。';
             qrWrap.innerHTML = '';
         }
     }
@@ -1711,7 +1711,7 @@ class TinyClawConsole {
         // 提取唯一的 channel 列表
         const channels = [...new Set(this.allSessions.map(s => s.sessionId.split(':')[0]))].sort();
         const channelSelect = document.getElementById('filterChannel');
-        channelSelect.innerHTML = '<option value="">Filter by Channel</option>' +
+        channelSelect.innerHTML = '<option value="">按渠道过滤</option>' +
             channels.map(c => `<option value="${c}">${this.capitalize(c)}</option>`).join('');
     }
     
@@ -1752,7 +1752,7 @@ class TinyClawConsole {
         document.getElementById('nextPage').disabled = currentPage >= totalPages;
         
         if (pageSessions.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No sessions found</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="6" class="empty-state">未找到会话</td></tr>';
             return;
         }
         
@@ -1767,8 +1767,8 @@ class TinyClawConsole {
                 <td class="col-user-id">${this.escapeHtml(s.userId)}</td>
                 <td class="col-action">
                     <div class="action-buttons">
-                        <button class="btn-edit" onclick="app.viewSessionDetail('${this.escapeHtml(s.sessionId)}')">Edit</button>
-                        <button class="btn-delete" onclick="app.deleteSession('${this.escapeHtml(s.sessionId)}')">Delete</button>
+                        <button class="btn-edit" onclick="app.viewSessionDetail('${this.escapeHtml(s.sessionId)}')">编辑</button>
+                        <button class="btn-delete" onclick="app.deleteSession('${this.escapeHtml(s.sessionId)}')">删除</button>
                     </div>
                 </td>
             </tr>
@@ -1819,7 +1819,7 @@ class TinyClawConsole {
             
             let content = `<div style="max-height: 400px; overflow-y: auto;">`;
             if (messages.length === 0) {
-                content += '<p class="empty-state">No messages in this session</p>';
+                content += '<p class="empty-state">此会话中没有消息</p>';
             } else {
                 content += messages.map(m => `
                     <div class="message ${m.role}" style="margin-bottom: 16px;">
@@ -1830,7 +1830,7 @@ class TinyClawConsole {
             }
             content += '</div>';
             
-            this.showModal(`Session: ${key}`, content, null);
+            this.showModal(`会话：${key}`, content, null);
             document.getElementById('modalConfirm').style.display = 'none';
         } catch (error) {
             console.error('Failed to load session:', error);
@@ -1838,7 +1838,7 @@ class TinyClawConsole {
     }
 
     async deleteSession(key) {
-        if (!confirm('Delete this session?')) return;
+        if (!confirm('删除此会话？')) return;
         try {
             await this.authFetch(`/api/sessions/${encodeURIComponent(key)}`, { method: 'DELETE' });
             this.loadSessions();
@@ -1857,7 +1857,7 @@ class TinyClawConsole {
             
             const list = document.getElementById('cronList');
             if (jobs.length === 0) {
-                list.innerHTML = '<p class="empty-state">No cron jobs configured</p>';
+                list.innerHTML = '<p class="empty-state">未配置定时任务</p>';
                 return;
             }
             
@@ -1867,10 +1867,10 @@ class TinyClawConsole {
                         <div class="cron-name">${job.name}</div>
                         <div class="cron-meta">${job.schedule} • ${job.message.substring(0, 50)}...</div>
                     </div>
-                    <span class="badge ${job.enabled ? 'badge-success' : 'badge-disabled'}">${job.enabled ? 'Enabled' : 'Disabled'}</span>
+                    <span class="badge ${job.enabled ? 'badge-success' : 'badge-disabled'}">${job.enabled ? '已启用' : '已禁用'}</span>
                     <div class="cron-actions">
-                        <button class="btn btn-secondary btn-sm" onclick="app.toggleCronJob('${job.id}', ${!job.enabled})">${job.enabled ? 'Disable' : 'Enable'}</button>
-                        <button class="btn btn-secondary btn-sm" onclick="app.deleteCronJob('${job.id}')">Delete</button>
+                        <button class="btn btn-secondary btn-sm" onclick="app.toggleCronJob('${job.id}', ${!job.enabled})">${job.enabled ? '禁用' : '启用'}</button>
+                        <button class="btn btn-secondary btn-sm" onclick="app.deleteCronJob('${job.id}')">删除</button>
                     </div>
                 </div>
             `).join('');
@@ -1881,37 +1881,37 @@ class TinyClawConsole {
     }
 
     showAddCronModal() {
-        this.showModal('Add Cron Job', `
+        this.showModal('添加定时任务', `
             <div class="form-group">
-                <label>Name</label>
-                <input class="form-control" id="cronName" placeholder="Job name">
+                <label>名称</label>
+                <input class="form-control" id="cronName" placeholder="任务名称">
             </div>
             <div class="form-group">
-                <label>Message</label>
-                <textarea class="form-control" id="cronMessage" rows="3" placeholder="Task message for agent"></textarea>
+                <label>消息</label>
+                <textarea class="form-control" id="cronMessage" rows="3" placeholder="给代理的任务消息"></textarea>
             </div>
             <div class="form-group">
-                <label>Schedule Type</label>
+                <label>调度类型</label>
                 <select class="form-control" id="cronType">
-                    <option value="every">Every X seconds</option>
-                    <option value="cron">Cron expression</option>
+                    <option value="every">每隔X秒</option>
+                    <option value="cron">Cron表达式</option>
                 </select>
             </div>
             <div class="form-group" id="cronEveryGroup">
-                <label>Interval (seconds)</label>
+                <label>间隔（秒）</label>
                 <input class="form-control" id="cronEvery" type="number" value="3600">
             </div>
             <div class="form-group" id="cronExprGroup" style="display:none;">
-                <label>Cron Expression</label>
+                <label>Cron表达式</label>
                 <input class="form-control" id="cronExpr" placeholder="0 8 * * *">
             </div>
             <div class="form-group">
-                <label>Channel (optional)</label>
-                <input class="form-control" id="cronChannel" placeholder="e.g. dingtalk, telegram (leave empty for default)">
+                <label>渠道（可选）</label>
+                <input class="form-control" id="cronChannel" placeholder="例如：dingtalk, telegram（留空使用默认）">
             </div>
             <div class="form-group">
-                <label>To / Chat ID (optional)</label>
-                <input class="form-control" id="cronTo" placeholder="Target chat ID (leave empty to use channel default)">
+                <label>目标/聊天ID（可选）</label>
+                <input class="form-control" id="cronTo" placeholder="目标聊天ID（留空使用渠道默认）">
             </div>
 
         `, async () => {
@@ -1958,7 +1958,7 @@ class TinyClawConsole {
     }
 
     async deleteCronJob(id) {
-        if (!confirm('Delete this job?')) return;
+        if (!confirm('删除此任务？')) return;
         await this.authFetch(`/api/cron/${id}`, { method: 'DELETE' });
         this.loadCronJobs();
     }
@@ -1980,15 +1980,15 @@ class TinyClawConsole {
             
             const list = document.getElementById('workspaceFiles');
             if (files.length === 0) {
-                list.innerHTML = '<div class="empty-state">No files found</div>';
+                list.innerHTML = '<div class="empty-state">未找到文件</div>';
                 return;
             }
             
             list.innerHTML = files.map(f => {
                 const exists = f.exists;
                 const sizeText = exists && f.size ? this.formatFileSize(f.size) : '-';
-                const timeText = exists && f.lastModified ? this.formatTimeAgo(f.lastModified) : (exists ? '-' : 'Not created yet');
-                const statusText = exists ? 'Exists' : 'Not created';
+                const timeText = exists && f.lastModified ? this.formatTimeAgo(f.lastModified) : (exists ? '-' : '尚未创建');
+                const statusText = exists ? '已存在' : '未创建';
                 const descText = f.description || '';
                 
                 return `
@@ -2027,10 +2027,10 @@ class TinyClawConsole {
         const hours = Math.floor(diff / 3600000);
         const days = Math.floor(diff / 86400000);
         
-        if (days > 0) return days + 'd ago';
-        if (hours > 0) return hours + 'h ago';
-        if (minutes > 0) return minutes + 'm ago';
-        return 'just now';
+        if (days > 0) return days + '天前';
+        if (hours > 0) return hours + '小时前';
+        if (minutes > 0) return minutes + '分钟前';
+        return '刚刚';
     }
 
     async loadFile(name) {
@@ -2068,7 +2068,7 @@ class TinyClawConsole {
             // 临时改变按钮文本
             const btn = document.getElementById('saveFileBtn');
             const originalText = btn.textContent;
-            btn.textContent = 'Saved!';
+            btn.textContent = '已保存！';
             setTimeout(() => {
                 btn.textContent = originalText;
             }, 1500);
@@ -2076,26 +2076,26 @@ class TinyClawConsole {
             // 刷新文件列表以更新修改时间
             this.loadWorkspaceFiles();
         } catch (error) {
-            alert('Failed to save: ' + error.message);
+            alert('保存失败：' + error.message);
         }
     }
     
     showUploadModal() {
-        this.showModal('Upload File', `
+        this.showModal('上传文件', `
             <div class="form-group">
-                <label>File Name</label>
-                <input class="form-control" id="uploadFileName" placeholder="e.g., CUSTOM.md">
+                <label>文件名</label>
+                <input class="form-control" id="uploadFileName" placeholder="例如：CUSTOM.md">
             </div>
             <div class="form-group">
-                <label>Content</label>
-                <textarea class="form-control" id="uploadFileContent" rows="10" placeholder="File content..."></textarea>
+                <label>内容</label>
+                <textarea class="form-control" id="uploadFileContent" rows="10" placeholder="文件内容..."></textarea>
             </div>
         `, async () => {
             const name = document.getElementById('uploadFileName').value.trim();
             const content = document.getElementById('uploadFileContent').value;
             
             if (!name) {
-                alert('Please enter a file name');
+                alert('请输入文件名');
                 return;
             }
             
@@ -2107,14 +2107,14 @@ class TinyClawConsole {
                 });
                 this.loadWorkspaceFiles();
             } catch (error) {
-                alert('Upload failed: ' + error.message);
+                alert('上传失败：' + error.message);
             }
         });
     }
     
     async downloadCurrentFile() {
         if (!this.currentEditingFile) {
-            alert('Please select a file first');
+            alert('请先选择一个文件');
             return;
         }
         
@@ -2339,15 +2339,15 @@ class TinyClawConsole {
             
             const list = document.getElementById('personaFiles');
             if (files.length === 0) {
-                list.innerHTML = '<div class="empty-state">No persona files found</div>';
+                list.innerHTML = '<div class="empty-state">未找到角色文件</div>';
                 return;
             }
             
             list.innerHTML = files.map(f => {
                 const sizeText = f.size ? this.formatFileSize(f.size) : '0 B';
-                const timeText = f.exists && f.lastModified ? this.formatTimeAgo(f.lastModified) : 'Not created';
+                const timeText = f.exists && f.lastModified ? this.formatTimeAgo(f.lastModified) : '未创建';
                 const statusClass = f.exists ? 'exists' : 'not-exists';
-                const statusText = f.exists ? '✓ Exists' : '+ Create';
+                const statusText = f.exists ? '✓ 已存在' : '+ 创建';
                 const statusIcon = f.exists ? '📄' : '➕';
                 
                 return `
@@ -2371,7 +2371,7 @@ class TinyClawConsole {
         } catch (error) {
             console.error('Failed to load persona files:', error);
             document.getElementById('personaFiles').innerHTML = 
-                '<div class="empty-state">Failed to load files: ' + this.escapeHtml(error.message) + '</div>';
+                '<div class="empty-state">加载文件失败：' + this.escapeHtml(error.message) + '</div>';
         }
 
         document.getElementById('refreshPersonaFilesBtn').onclick = () => this.loadPersonaFiles();
@@ -2413,7 +2413,7 @@ class TinyClawConsole {
             
             document.getElementById('personaEditorFileName').textContent = name;
             document.getElementById('personaEditorFileStatus').textContent = 
-                this.currentPersonaFileInfo.exists ? '● Exists' : '○ Not created';
+                this.currentPersonaFileInfo.exists ? '● 已存在' : '○ 未创建';
             document.getElementById('personaEditorFileStatus').className = 
                 'editor-file-status ' + (this.currentPersonaFileInfo.exists ? 'exists' : 'not-exists');
             document.getElementById('personaEditorFileDesc').textContent = 
@@ -2422,7 +2422,7 @@ class TinyClawConsole {
             
         } catch (error) {
             console.error('Failed to load persona file:', error);
-            alert('Failed to load file: ' + error.message);
+            alert('加载文件失败：' + error.message);
         }
     }
 
@@ -2440,7 +2440,7 @@ class TinyClawConsole {
             if (response.ok) {
                 const btn = document.getElementById('personaSaveFileBtn');
                 const originalText = btn.textContent;
-                btn.textContent = '✓ Saved!';
+                btn.textContent = '✓ 已保存！';
                 btn.classList.add('btn-success');
                 setTimeout(() => {
                     btn.textContent = originalText;
@@ -2449,22 +2449,22 @@ class TinyClawConsole {
                 
                 this.currentPersonaFileInfo.exists = true;
                 this.currentPersonaFileInfo.content = content;
-                document.getElementById('personaEditorFileStatus').textContent = '● Exists';
+                document.getElementById('personaEditorFileStatus').textContent = '● 已存在';
                 document.getElementById('personaEditorFileStatus').className = 'editor-file-status exists';
                 
                 this.loadPersonaFiles();
             } else {
                 const err = await response.json();
-                alert('Failed to save: ' + (err.error || response.status));
+                alert('保存失败：' + (err.error || response.status));
             }
         } catch (error) {
-            alert('Failed to save: ' + error.message);
+            alert('保存失败：' + error.message);
         }
     }
 
     usePersonaTemplate() {
         if (!this.currentPersonaFile) {
-            alert('Please select a file first');
+            alert('请先选择一个文件');
             return;
         }
         

@@ -6,7 +6,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>jclaw Console</title>
+    <title>jclaw 控制台</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🦞</text></svg>">
     <link rel="stylesheet" href="/css/style.css?v=20260321e">
 </head>
@@ -24,13 +24,13 @@
                 <div class="nav-group" data-group="chat">
                     <div class="nav-group-header">
                         <span class="nav-icon">💬</span>
-                        <span>Chat</span>
+                        <span>聊天</span>
                         <span class="nav-arrow">▾</span>
                     </div>
                     <div class="nav-group-items">
                         <a href="#chat" class="nav-item active" data-page="chat">
                             <span class="nav-icon">○</span>
-                            <span>Chat</span>
+                            <span>聊天</span>
                         </a>
                     </div>
                 </div>
@@ -38,21 +38,21 @@
                 <div class="nav-group" data-group="control">
                     <div class="nav-group-header">
                         <span class="nav-icon">📡</span>
-                        <span>Control</span>
+                        <span>控制</span>
                         <span class="nav-arrow">▾</span>
                     </div>
                     <div class="nav-group-items">
                         <a href="#channels" class="nav-item" data-page="channels">
                             <span class="nav-icon">📶</span>
-                            <span>Channels</span>
+                            <span>渠道</span>
                         </a>
                         <a href="#sessions" class="nav-item" data-page="sessions">
                             <span class="nav-icon">👤</span>
-                            <span>Sessions</span>
+                            <span>会话</span>
                         </a>
                         <a href="#cron" class="nav-item" data-page="cron">
                             <span class="nav-icon">⏰</span>
-                            <span>Cron Jobs</span>
+                            <span>定时任务</span>
                         </a>
                     </div>
                 </div>
@@ -60,21 +60,21 @@
                 <div class="nav-group" data-group="agent">
                     <div class="nav-group-header">
                         <span class="nav-icon">⚡</span>
-                        <span>Agent</span>
+                        <span>代理</span>
                         <span class="nav-arrow">▾</span>
                     </div>
                     <div class="nav-group-items">
                         <a href="#persona" class="nav-item" data-page="persona">
                             <span class="nav-icon">👤</span>
-                            <span>Persona</span>
+                            <span>角色</span>
                         </a>
                         <a href="#workspace" class="nav-item" data-page="workspace">
                             <span class="nav-icon">📁</span>
-                            <span>Workspace</span>
+                            <span>工作区</span>
                         </a>
                         <a href="#skills" class="nav-item" data-page="skills">
                             <span class="nav-icon">🧩</span>
-                            <span>Skills</span>
+                            <span>技能</span>
                         </a>
                         <a href="#mcp" class="nav-item" data-page="mcp">
                             <span class="nav-icon">🔌</span>
@@ -86,21 +86,21 @@
                 <div class="nav-group" data-group="settings">
                     <div class="nav-group-header">
                         <span class="nav-icon">⚙️</span>
-                        <span>Settings</span>
+                        <span>设置</span>
                         <span class="nav-arrow">▾</span>
                     </div>
                     <div class="nav-group-items">
                         <a href="#models" class="nav-item" data-page="models">
                             <span class="nav-icon">🤖</span>
-                            <span>Models</span>
+                            <span>模型</span>
                         </a>
                         <a href="#environments" class="nav-item" data-page="environments">
                             <span class="nav-icon">🌍</span>
-                            <span>Environments</span>
+                            <span>环境</span>
                         </a>
                         <a href="#token-usage" class="nav-item" data-page="token-usage">
                             <span class="nav-icon">📊</span>
-                            <span>Token Usage</span>
+                            <span>Token使用</span>
                         </a>
                     </div>
                 </div>
@@ -110,23 +110,23 @@
         <!-- 主内容区 -->
         <main class="main-content">
             <header class="page-header">
-                <h1 class="page-title" id="pageTitle">Chat</h1>
+                <h1 class="page-title" id="pageTitle">聊天</h1>
             </header>
             
             <div class="page-content">
-                <!-- Chat 页面 -->
+                <!-- 聊天 页面 -->
                 <div id="page-chat" class="page active">
                     <div class="chat-container">
                         <div class="chat-sidebar">
-                            <button class="btn btn-primary btn-block" id="newChatBtn">+ New Chat</button>
+                            <button class="btn btn-primary btn-block" id="newChatBtn">+ 新建聊天</button>
                             <div class="chat-history" id="chatHistory"></div>
                         </div>
                         <div class="chat-main">
                             <div class="chat-messages" id="chatMessages">
                                 <div class="chat-welcome">
                                     <div class="welcome-icon">🦞</div>
-                                    <h2>Hello, how can I help you today?</h2>
-                                    <p>I am a helpful assistant that can help you with your questions.</p>
+                                    <h2>你好，今天我能帮你什么？</h2>
+                                    <p>我是一个乐于助人的助手，可以帮你解决问题。</p>
                                     <div class="quick-prompts">
                                         <div class="quick-prompt" data-prompt="你有哪些技能？">
                                             <span class="prompt-icon">✦</span>
@@ -154,9 +154,9 @@
                             <div class="chat-input-container">
                                 <div class="chat-image-preview" id="chatImagePreview" style="display: none;"></div>
                                 <div class="chat-input-row">
-                                    <button class="btn btn-icon btn-upload" id="uploadBtn" title="Upload Image">📎</button>
+                                    <button class="btn btn-icon btn-upload" id="uploadBtn" title="上传图片">📎</button>
                                     <input type="file" id="imageUpload" accept="image/*" multiple style="display: none;">
-                                    <textarea class="chat-input" id="chatInput" placeholder="Type your message... (Ctrl+Enter to send)" rows="1"></textarea>
+                                    <textarea class="chat-input" id="chatInput" placeholder="输入消息... (Ctrl+Enter 发送)" rows="1"></textarea>
                                     <button class="btn btn-primary btn-send" id="sendBtn">↑</button>
                                 </div>
                             </div>
@@ -164,28 +164,28 @@
                     </div>
                 </div>
                 
-                <!-- Channels 页面 -->
+                <!-- 渠道 页面 -->
                 <div id="page-channels" class="page">
-                    <p class="page-desc">Manage and configure message channels</p>
+                    <p class="page-desc">管理和配置消息渠道</p>
                     <div class="card-grid" id="channelsGrid"></div>
                 </div>
                 
-                <!-- Sessions 页面 -->
+                <!-- 会话 页面 -->
                 <div id="page-sessions" class="page">
-                    <p class="page-desc">View and manage active chat sessions</p>
+                    <p class="page-desc">查看和管理活跃的聊天会话</p>
                     
                     <!-- 过滤工具栏 -->
                     <div class="sessions-toolbar">
                         <div class="filter-group">
-                            <input type="text" class="form-control filter-input" id="filterUserId" placeholder="Filter by User ID">
+                            <input type="text" class="form-control filter-input" id="filterUserId" placeholder="按用户ID过滤">
                             <select class="form-control filter-input" id="filterChannel">
-                                <option value="">Filter by Channel</option>
+                                <option value="">按渠道过滤</option>
                             </select>
                         </div>
                         <div class="pagination-info" id="paginationInfo">0 / 0</div>
                     </div>
                     
-                    <!-- Sessions 表格 -->
+                    <!-- 会话 表格 -->
                     <div class="sessions-table-container">
                         <table class="sessions-table">
                             <thead>
@@ -194,15 +194,15 @@
                                         <input type="checkbox" id="selectAllSessions">
                                     </th>
                                     <th class="col-id">ID</th>
-                                    <th class="col-name">Name</th>
-                                    <th class="col-session-id">SessionID</th>
-                                    <th class="col-user-id">UserID</th>
-                                    <th class="col-action">Action</th>
+                                    <th class="col-name">名称</th>
+                                    <th class="col-session-id">会话ID</th>
+                                    <th class="col-user-id">用户ID</th>
+                                    <th class="col-action">操作</th>
                                 </tr>
                             </thead>
                             <tbody id="sessionsTableBody">
                                 <tr>
-                                    <td colspan="6" class="empty-state">No sessions yet</td>
+                                    <td colspan="6" class="empty-state">暂无会话</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -210,7 +210,7 @@
                     
                     <!-- 分页 -->
                     <div class="pagination-container">
-                        <div class="pagination-left">Total <span id="totalSessions">0</span> items</div>
+                        <div class="pagination-left">共 <span id="totalSessions">0</span> 项</div>
                         <div class="pagination-right">
                             <button class="btn-page" id="prevPage">◀</button>
                             <span class="page-number" id="currentPage">1</span>
@@ -219,32 +219,32 @@
                     </div>
                 </div>
                 
-                <!-- Cron Jobs 页面 -->
+                <!-- 定时任务 页面 -->
                 <div id="page-cron" class="page">
-                    <p class="page-desc">Schedule and manage automated tasks</p>
+                    <p class="page-desc">计划和管理自动化任务</p>
                     <div class="cron-toolbar">
-                        <button class="btn btn-primary" id="addCronBtn">+ Add Job</button>
+                        <button class="btn btn-primary" id="addCronBtn">+ 添加任务</button>
                     </div>
                     <div class="cron-list" id="cronList"></div>
                 </div>
                 
-                <!-- Persona 页面 -->
+                <!-- 角色 页面 -->
                 <div id="page-persona" class="page">
-                    <p class="page-desc">Manage and configure Agent persona files (AGENTS.md, SOUL.md, USER.md, IDENTITY.md, etc.)</p>
+                    <p class="page-desc">管理和配置代理角色文件（AGENTS.md、SOUL.md、USER.md、IDENTITY.md等）</p>
                     
                     <div class="persona-container">
                         <!-- 左侧文件卡片列表 -->
                         <div class="persona-sidebar">
                             <div class="persona-section">
                                 <div class="persona-section-header">
-                                    <h3>Persona Files</h3>
-                                    <button class="btn-refresh" id="refreshPersonaFilesBtn" title="Refresh">
+                                    <h3>角色文件</h3>
+                                    <button class="btn-refresh" id="refreshPersonaFilesBtn" title="刷新">
                                         <span>↻</span>
                                     </button>
                                 </div>
-                                <p class="persona-section-desc">These files define your Agent's identity, behavior, and personality.</p>
+                                <p class="persona-section-desc">这些文件定义了你的代理的身份、行为和个性。</p>
                                 <div class="persona-files" id="personaFiles">
-                                    <div class="empty-state">Loading files...</div>
+                                    <div class="empty-state">加载文件中...</div>
                                 </div>
                             </div>
                         </div>
@@ -253,32 +253,32 @@
                         <div class="persona-editor">
                             <div class="editor-placeholder" id="personaEditorPlaceholder">
                                 <div class="placeholder-icon">📄</div>
-                                <div class="placeholder-text">Select a file to view or edit</div>
-                                <div class="placeholder-hint">Click on any file card on the left to get started</div>
+                                <div class="placeholder-text">选择文件以查看或编辑</div>
+                                <div class="placeholder-hint">点击左侧的任意文件卡片开始</div>
                             </div>
                             <div class="editor-container" id="personaEditorContainer" style="display: none;">
                                 <div class="editor-header">
                                     <div class="editor-file-info">
-                                        <span class="editor-file-name" id="personaEditorFileName">Select a file</span>
+                                        <span class="editor-file-name" id="personaEditorFileName">选择文件</span>
                                         <span class="editor-file-status" id="personaEditorFileStatus"></span>
                                     </div>
                                     <div class="editor-actions">
-                                        <button class="btn btn-secondary btn-sm" id="personaUseTemplateBtn">Use Template</button>
-                                        <button class="btn btn-primary btn-sm" id="personaSaveFileBtn">Save</button>
+                                        <button class="btn btn-secondary btn-sm" id="personaUseTemplateBtn">使用模板</button>
+                                        <button class="btn btn-primary btn-sm" id="personaSaveFileBtn">保存</button>
                                     </div>
                                 </div>
                                 <div class="editor-file-desc" id="personaEditorFileDesc"></div>
-                                <textarea class="editor-content" id="personaEditorContent" placeholder="File content..."></textarea>
+                                <textarea class="editor-content" id="personaEditorContent" placeholder="文件内容..."></textarea>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Workspace 页面 -->
+                <!-- 工作区 页面 -->
                 <div id="page-workspace" class="page">
                     <div class="workspace-header">
                         <div class="workspace-path">
-                            <span class="workspace-label">Workspace:</span>
+                            <span class="workspace-label">工作区：</span>
                             <span class="workspace-path-value" id="workspacePath">/app/working</span>
                         </div>
                     </div>
@@ -288,14 +288,14 @@
                         <div class="workspace-sidebar">
                             <div class="workspace-section">
                                 <div class="workspace-section-header">
-                                    <h3>Core Files</h3>
-                                    <button class="btn-refresh" id="refreshFilesBtn" title="Refresh">
+                                    <h3>核心文件</h3>
+                                    <button class="btn-refresh" id="refreshFilesBtn" title="刷新">
                                         <span>↻</span>
                                     </button>
                                 </div>
-                                <p class="workspace-section-desc">Bootstrap persona, identity, and tool guidance.</p>
+                                <p class="workspace-section-desc">引导角色、身份和工具指导。</p>
                                 <div class="workspace-files" id="workspaceFiles">
-                                    <div class="empty-state">Loading files...</div>
+                                    <div class="empty-state">加载文件中...</div>
                                 </div>
                             </div>
                         </div>
@@ -303,77 +303,77 @@
                         <!-- 右侧编辑器 -->
                         <div class="workspace-editor">
                             <div class="editor-placeholder" id="editorPlaceholder">
-                                <span>Select a file to edit</span>
+                                <span>选择文件以编辑</span>
                             </div>
                             <div class="editor-container" id="editorContainer" style="display: none;">
                                 <div class="editor-header">
-                                    <span id="editorFileName">Select a file</span>
-                                    <button class="btn btn-primary btn-sm" id="saveFileBtn">Save</button>
+                                    <span id="editorFileName">选择文件</span>
+                                    <button class="btn btn-primary btn-sm" id="saveFileBtn">保存</button>
                                 </div>
-                                <textarea class="editor-content" id="editorContent" placeholder="Select a file to edit..."></textarea>
+                                <textarea class="editor-content" id="editorContent" placeholder="选择文件以编辑..."></textarea>
                             </div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Skills 页面 -->
+                <!-- 技能 页面 -->
                 <div id="page-skills" class="page">
-                    <p class="page-desc">View and manage agent skills</p>
+                    <p class="page-desc">查看和管理代理技能</p>
                     <div class="card-grid" id="skillsGrid"></div>
                 </div>
                 
                 <!-- MCP 页面 -->
                 <div id="page-mcp" class="page">
-                    <p class="page-desc">Configure and manage MCP (Model Context Protocol) servers</p>
+                    <p class="page-desc">配置和管理MCP（模型上下文协议）服务器</p>
                     
                     <div class="mcp-toolbar">
                         <div class="mcp-toggle">
                             <label class="toggle-label">
-                                <span>MCP Enabled</span>
+                                <span>MCP 已启用</span>
                                 <input type="checkbox" id="mcpEnabledToggle">
                                 <span class="toggle-slider"></span>
                             </label>
                         </div>
-                        <button class="btn btn-primary" id="addMcpServerBtn">+ Add Server</button>
+                        <button class="btn btn-primary" id="addMcpServerBtn">+ 添加服务器</button>
                     </div>
                     
                     <div class="card-grid" id="mcpServersGrid">
-                        <p class="empty-state">No MCP servers configured</p>
+                        <p class="empty-state">未配置MCP服务器</p>
                     </div>
                 </div>
                 
-                <!-- Models 页面 -->
+                <!-- 模型 页面 -->
                 <div id="page-models" class="page">
                     <div class="section">
-                        <h2 class="section-title">Providers</h2>
-                        <p class="page-desc">Configure API keys and endpoints for each provider</p>
+                        <h2 class="section-title">提供商</h2>
+                        <p class="page-desc">为每个提供商配置API密钥和端点</p>
                         <div class="provider-grid" id="providersGrid"></div>
                     </div>
                     <div class="section">
-                        <h2 class="section-title">LLM</h2>
-                        <p class="page-desc">Choose the active LLM model from an authorized provider</p>
+                        <h2 class="section-title">大语言模型</h2>
+                        <p class="page-desc">从授权提供商选择活跃的LLM模型</p>
                         <div class="config-card">
                             <div class="config-card-header">
-                                <h3>LLM Configuration</h3>
-                                <span class="badge badge-active" id="activeModelBadge">Active: -</span>
+                                <h3>LLM 配置</h3>
+                                <span class="badge badge-active" id="activeModelBadge">当前：-</span>
                             </div>
                             <div class="config-form llm-config-form">
                                 <div class="form-row">
                                     <div class="form-group">
-                                        <label>Provider</label>
+                                        <label>提供商</label>
                                         <select class="form-control" id="providerSelect">
-                                            <option value="">Select a provider</option>
+                                            <option value="">选择提供商</option>
                                         </select>
                                     </div>
                                     <div class="form-group">
-                                        <label>Model</label>
+                                        <label>模型</label>
                                         <select class="form-control" id="modelSelect">
-                                            <option value="">Select a model</option>
+                                            <option value="">选择模型</option>
                                         </select>
                                     </div>
                                     <div class="form-group form-group-btn">
                                         <button class="btn btn-success" id="saveModelBtn" disabled>
-                                            <span class="btn-icon">✓</span> Saved
+                                            <span class="btn-icon">✓</span> 已保存
                                         </button>
                                     </div>
                                 </div>
@@ -382,9 +382,9 @@
                     </div>
                 </div>
                 
-                <!-- Token 消耗页面 -->
+                <!-- Token 使用页面 -->
                 <div id="page-token-usage" class="page">
-                    <p class="page-desc">View LLM Token usage over a time range, grouped by date and model.</p>
+                    <p class="page-desc">查看LLM Token在时间范围内的使用情况，按日期和模型分组。</p>
 
                     <!-- 日期筛选工具栏 -->
                     <div class="token-toolbar">
@@ -450,41 +450,41 @@
                     </div>
                 </div>
 
-                <!-- Environments 页面 -->
+                <!-- 环境 页面 -->
                 <div id="page-environments" class="page">
-                    <p class="page-desc">Configure agent default parameters</p>
+                    <p class="page-desc">配置代理默认参数</p>
                     <div class="config-card">
-                        <h3>Agent Configuration</h3>
+                        <h3>代理配置</h3>
                         <div class="config-form" id="agentConfigForm">
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Max Tokens</label>
+                                    <label>最大Token数</label>
                                     <input type="number" class="form-control" id="cfgMaxTokens">
                                 </div>
                                 <div class="form-group">
-                                    <label>Temperature</label>
+                                    <label>温度参数</label>
                                     <input type="number" class="form-control" id="cfgTemperature" step="0.1" min="0" max="2">
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Max Tool Iterations</label>
+                                    <label>最大工具迭代次数</label>
                                     <input type="number" class="form-control" id="cfgMaxToolIterations">
                                 </div>
                                 <div class="form-group">
-                                    <label>Heartbeat Enabled</label>
+                                    <label>启用心跳</label>
                                     <select class="form-control" id="cfgHeartbeatEnabled">
-                                        <option value="false">No</option>
-                                        <option value="true">Yes</option>
+                                        <option value="false">否</option>
+                                        <option value="true">是</option>
                                     </select>
                                 </div>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
-                                    <label>Restrict to Workspace</label>
+                                    <label>限制在工作区</label>
                                     <select class="form-control" id="cfgRestrictToWorkspace">
-                                        <option value="true">Yes</option>
-                                        <option value="false">No</option>
+                                        <option value="true">是</option>
+                                        <option value="false">否</option>
                                     </select>
                                 </div>
                             </div>
@@ -492,68 +492,68 @@
                     </div>
                     
                     <div class="config-card">
-                        <h3>Command Blacklist</h3>
-                        <p class="page-desc">Configure dangerous commands that should be blocked from execution</p>
+                        <h3>命令黑名单</h3>
+                        <p class="page-desc">配置应阻止执行的危险命令</p>
                         <div class="config-form">
                             <div class="form-row">
                                 <div class="form-group" style="flex: 1;">
-                                    <input type="text" class="form-control" id="cfgNewBlacklistCommand" placeholder="Enter command pattern to block (e.g., rm -rf /)">
+                                    <input type="text" class="form-control" id="cfgNewBlacklistCommand" placeholder="输入要阻止的命令模式（例如：rm -rf /）">
                                 </div>
                                 <div class="form-group" style="width: auto;">
-                                    <button class="btn btn-secondary" id="addBlacklistCommandBtn">+ Add</button>
+                                    <button class="btn btn-secondary" id="addBlacklistCommandBtn">+ 添加</button>
                                 </div>
                             </div>
                             <div class="form-group">
-                                <label>Blocked Commands:</label>
+                                <label>已阻止的命令：</label>
                                 <div class="blacklist-container" id="blacklistContainer">
-                                    <div class="empty-state">No custom blacklist commands</div>
+                                    <div class="empty-state">暂无自定义黑名单命令</div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
                     <div style="margin-top: 24px;">
-                        <button class="btn btn-primary" id="saveAgentConfigBtn">Save Configuration</button>
+                        <button class="btn btn-primary" id="saveAgentConfigBtn">保存配置</button>
                     </div>
                 </div>
             </div>
         </main>
     </div>
     
-    <!-- Login Modal -->
+    <!-- 登录模态框 -->
     <div class="login-overlay" id="loginOverlay">
         <div class="login-modal">
             <div class="login-header">
                 <span class="login-icon">🦞</span>
-                <h2>jclaw Console</h2>
-                <p>Please sign in to continue</p>
+                <h2>jclaw 控制台</h2>
+                <p>请登录以继续</p>
             </div>
             <div class="login-body">
                 <div class="login-error" id="loginError" style="display: none;"></div>
                 <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" class="form-control" id="loginUsername" placeholder="Enter username" autocomplete="username">
+                    <label>用户名</label>
+                    <input type="text" class="form-control" id="loginUsername" placeholder="输入用户名" autocomplete="username">
                 </div>
                 <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" class="form-control" id="loginPassword" placeholder="Enter password" autocomplete="current-password">
+                    <label>密码</label>
+                    <input type="password" class="form-control" id="loginPassword" placeholder="输入密码" autocomplete="current-password">
                 </div>
-                <button class="btn btn-primary btn-block" id="loginBtn">Sign In</button>
+                <button class="btn btn-primary btn-block" id="loginBtn">登录</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal -->
+    <!-- 模态框 -->
     <div class="modal" id="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modalTitle">Modal</h3>
+                <h3 id="modalTitle">模态框</h3>
                 <button class="modal-close" id="modalClose">&times;</button>
             </div>
             <div class="modal-body" id="modalBody"></div>
             <div class="modal-footer">
-                <button class="btn btn-secondary" id="modalCancel">Cancel</button>
-                <button class="btn btn-primary" id="modalConfirm">Confirm</button>
+                <button class="btn btn-secondary" id="modalCancel">取消</button>
+                <button class="btn btn-primary" id="modalConfirm">确认</button>
             </div>
         </div>
     </div>
