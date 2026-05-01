@@ -1970,9 +1970,12 @@ class TinyClawConsole {
             // 获取 workspace 路径
             const configResponse = await this.authFetch('/api/config/agent');
             const config = await configResponse.json();
-            // workspace 路径可能在配置中，这里暂时显示默认路径
             
-            const response = await this.authFetch('/api/workspace/files');
+            // 更新页面上显示的工作空间路径
+            const workspacePath = config.workspacePath || config.workspace || '/app/working';
+            document.getElementById('workspacePath').textContent = workspacePath;
+            
+            const response = await this.authFetch('/api/workspace/files/all');
             const files = await response.json();
             
             const list = document.getElementById('workspaceFiles');
@@ -1982,13 +1985,20 @@ class TinyClawConsole {
             }
             
             list.innerHTML = files.map(f => {
-                const sizeText = f.size ? this.formatFileSize(f.size) : '-';
-                const timeText = f.lastModified ? this.formatTimeAgo(f.lastModified) : '-';
+                const exists = f.exists;
+                const sizeText = exists && f.size ? this.formatFileSize(f.size) : '-';
+                const timeText = exists && f.lastModified ? this.formatTimeAgo(f.lastModified) : (exists ? '-' : 'Not created yet');
+                const statusText = exists ? 'Exists' : 'Not created';
+                const descText = f.description || '';
                 
                 return `
-                    <div class="file-card" data-file="${f.name}" onclick="app.loadFile('${f.name}')">
+                    <div class="file-card ${exists ? 'exists' : 'not-exists'}" data-file="${f.name}" onclick="app.loadFile('${f.name}')">
                         <div class="file-card-info">
-                            <div class="file-card-name">${f.name}</div>
+                            <div class="file-card-name">
+                                ${f.name}
+                                <span class="file-card-status ${exists ? 'status-exists' : 'status-not-exists'}">${statusText}</span>
+                            </div>
+                            ${descText ? `<div class="file-card-desc">${descText}</div>` : ''}
                             <div class="file-card-meta">${sizeText} · ${timeText}</div>
                         </div>
                         <div class="file-card-arrow">▶</div>
@@ -3219,6 +3229,8 @@ class TinyClawConsole {
 
     // ==================== Environments ====================
 
+    currentBlacklist = [];
+
     async loadAgentConfig() {
         try {
             const response = await this.authFetch('/api/config/agent');
@@ -3229,17 +3241,23 @@ class TinyClawConsole {
             document.getElementById('cfgMaxToolIterations').value = config.maxToolIterations;
             document.getElementById('cfgHeartbeatEnabled').value = config.heartbeatEnabled.toString();
             document.getElementById('cfgRestrictToWorkspace').value = config.restrictToWorkspace.toString();
+            
+            this.currentBlacklist = config.commandBlacklist || [];
+            this.renderBlacklist();
         } catch (error) {
             console.error('Failed to load agent config:', error);
         }
 
+        this.bindBlacklistEvents();
+        
         document.getElementById('saveAgentConfigBtn').onclick = async () => {
             const data = {
                 maxTokens: parseInt(document.getElementById('cfgMaxTokens').value),
                 temperature: parseFloat(document.getElementById('cfgTemperature').value),
                 maxToolIterations: parseInt(document.getElementById('cfgMaxToolIterations').value),
                 heartbeatEnabled: document.getElementById('cfgHeartbeatEnabled').value === 'true',
-                restrictToWorkspace: document.getElementById('cfgRestrictToWorkspace').value === 'true'
+                restrictToWorkspace: document.getElementById('cfgRestrictToWorkspace').value === 'true',
+                commandBlacklist: this.currentBlacklist
             };
             
             await this.authFetch('/api/config/agent', {
@@ -3249,6 +3267,46 @@ class TinyClawConsole {
             });
             alert('Configuration saved!');
         };
+    }
+
+    renderBlacklist() {
+        const container = document.getElementById('blacklistContainer');
+        if (this.currentBlacklist.length === 0) {
+            container.innerHTML = '<div class="empty-state">No custom blacklist commands</div>';
+            return;
+        }
+        
+        container.innerHTML = this.currentBlacklist.map((cmd, index) => `
+            <div class="blacklist-item" data-index="${index}">
+                <span class="blacklist-item-text">${this.escapeHtml(cmd)}</span>
+                <button class="blacklist-item-remove" onclick="app.removeBlacklistItem(${index})">×</button>
+            </div>
+        `).join('');
+    }
+
+    bindBlacklistEvents() {
+        const addBtn = document.getElementById('addBlacklistCommandBtn');
+        const input = document.getElementById('cfgNewBlacklistCommand');
+        
+        addBtn.onclick = () => {
+            const cmd = input.value.trim();
+            if (cmd && !this.currentBlacklist.includes(cmd)) {
+                this.currentBlacklist.push(cmd);
+                this.renderBlacklist();
+                input.value = '';
+            }
+        };
+        
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                addBtn.click();
+            }
+        });
+    }
+
+    removeBlacklistItem(index) {
+        this.currentBlacklist.splice(index, 1);
+        this.renderBlacklist();
     }
 
     // ==================== Modal ====================

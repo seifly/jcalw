@@ -1254,6 +1254,50 @@ body {
     font-size: 12px;
 }
 
+.file-card.not-exists {
+    border-style: dashed;
+    opacity: 0.85;
+}
+
+.file-card.not-exists:hover {
+    opacity: 1;
+    border-style: solid;
+}
+
+.file-card-name {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-card-status {
+    font-size: 11px;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+
+.file-card-status.status-exists {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.file-card-status.status-not-exists {
+    background: #fef3c7;
+    color: #92400e;
+}
+
+.file-card-desc {
+    font-size: 12px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    line-height: 1.4;
+}
+
 .workspace-editor {
     flex: 1;
     display: flex;
@@ -2859,4 +2903,59 @@ body {
     .persona-editor {
         min-height: 500px;
     }
+}
+
+/* Blacklist Styles */
+.blacklist-container {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.blacklist-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    margin-bottom: 8px;
+    transition: all 0.2s;
+}
+
+.blacklist-item:last-child {
+    margin-bottom: 0;
+}
+
+.blacklist-item:hover {
+    border-color: var(--primary);
+    background: var(--primary-light);
+}
+
+.blacklist-item-text {
+    font-family: 'Monaco', 'Menlo', monospace;
+    font-size: 13px;
+    color: var(--text);
+    flex: 1;
+    word-break: break-all;
+    margin-right: 8px;
+}
+
+.blacklist-item-remove {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 18px;
+    cursor: pointer;
+    padding: 0 4px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+
+.blacklist-item-remove:hover {
+    color: var(--error);
 }

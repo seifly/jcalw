@@ -488,8 +488,32 @@
                                     </select>
                                 </div>
                             </div>
-                            <button class="btn btn-primary" id="saveAgentConfigBtn">Save</button>
                         </div>
+                    </div>
+                    
+                    <div class="config-card">
+                        <h3>Command Blacklist</h3>
+                        <p class="page-desc">Configure dangerous commands that should be blocked from execution</p>
+                        <div class="config-form">
+                            <div class="form-row">
+                                <div class="form-group" style="flex: 1;">
+                                    <input type="text" class="form-control" id="cfgNewBlacklistCommand" placeholder="Enter command pattern to block (e.g., rm -rf /)">
+                                </div>
+                                <div class="form-group" style="width: auto;">
+                                    <button class="btn btn-secondary" id="addBlacklistCommandBtn">+ Add</button>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label>Blocked Commands:</label>
+                                <div class="blacklist-container" id="blacklistContainer">
+                                    <div class="empty-state">No custom blacklist commands</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 24px;">
+                        <button class="btn btn-primary" id="saveAgentConfigBtn">Save Configuration</button>
                     </div>
                 </div>
             </div>

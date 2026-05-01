@@ -25,6 +25,7 @@ import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -389,6 +390,31 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
     }
     
     /**
+     * 提供 SecurityGuard Bean
+     * 
+     * 用于安全检查，包括工作空间限制和命令黑名单。
+     * 这个 Bean 可以被动态更新配置。
+     * 
+     * @param config 配置对象
+     * @return SecurityGuard 实例
+     */
+    @Bean
+    public SecurityGuard securityGuard(Config config) {
+        String workspace = config.getWorkspacePath();
+        boolean restrictToWorkspace = config.getAgent().isRestrictToWorkspace();
+        List<String> customBlacklist = config.getAgent().getCommandBlacklist();
+        
+        SecurityGuard securityGuard;
+        if (customBlacklist != null && !customBlacklist.isEmpty()) {
+            securityGuard = new SecurityGuard(workspace, restrictToWorkspace, customBlacklist);
+        } else {
+            securityGuard = new SecurityGuard(workspace, restrictToWorkspace);
+        }
+        
+        return securityGuard;
+    }
+    
+    /**
      * 提供 MessageBus Bean
      * 
      * @return 消息总线实例
@@ -431,7 +457,7 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
      * @return AgentRuntime 实例
      */
     @Bean
-    public AgentRuntime agentRuntime(Config config, MessageBus messageBus) {
+    public AgentRuntime agentRuntime(Config config, MessageBus messageBus, SecurityGuard securityGuard) {
         if (agentRuntime == null) {
             LLMProvider provider = null;
             try {
@@ -447,14 +473,7 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
             }
             agentRuntime = new AgentRuntime(config, messageBus, provider);
             
-            // 创建 SecurityGuard 用于安全检查
             String workspace = config.getWorkspacePath();
-            boolean restrictToWorkspace = config.getAgent().isRestrictToWorkspace();
-            SecurityGuard securityGuard = new SecurityGuard(workspace, restrictToWorkspace);
-            logger.info("SecurityGuard enabled", Map.of(
-                "workspace", workspace,
-                "restrictToWorkspace", restrictToWorkspace
-            ));
             
             // 注册核心工具（带 SecurityGuard）
             agentRuntime.registerTool(new ExecTool(workspace, securityGuard));

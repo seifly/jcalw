@@ -30,7 +30,7 @@ public class SecurityGuard {
     private static final JClawLogger logger = JClawLogger.getLogger("security");
     
     private final String workspace;
-    private final boolean restrictToWorkspace;
+    private volatile boolean restrictToWorkspace;
     private final List<Pattern> commandBlacklist;
     private final List<Path> protectedPaths;
     
@@ -447,5 +447,39 @@ public class SecurityGuard {
         return commandBlacklist.stream()
             .map(Pattern::pattern)
             .toList();
+    }
+    
+    /**
+     * 动态更新命令黑名单
+     * 
+     * @param customBlacklist 新的命令黑名单模式列表，如果为空则使用默认黑名单
+     */
+    public void updateCommandBlacklist(List<String> customBlacklist) {
+        if (customBlacklist == null || customBlacklist.isEmpty()) {
+            this.commandBlacklist.clear();
+            this.commandBlacklist.addAll(buildDefaultCommandBlacklist());
+            logger.info("SecurityGuard: Reverted to default command blacklist", Map.of(
+                "blacklistRules", commandBlacklist.size()
+            ));
+        } else {
+            List<Pattern> newPatterns = buildCommandBlacklist(customBlacklist);
+            this.commandBlacklist.clear();
+            this.commandBlacklist.addAll(newPatterns);
+            logger.info("SecurityGuard: Updated command blacklist", Map.of(
+                "blacklistRules", commandBlacklist.size()
+            ));
+        }
+    }
+    
+    /**
+     * 动态更新工作空间限制设置
+     * 
+     * @param restrictToWorkspace 是否限制文件访问在工作空间内
+     */
+    public void updateRestrictToWorkspace(boolean restrictToWorkspace) {
+        this.restrictToWorkspace = restrictToWorkspace;
+        logger.info("SecurityGuard: restrictToWorkspace setting updated", Map.of(
+            "restrictToWorkspace", restrictToWorkspace
+        ));
     }
 }

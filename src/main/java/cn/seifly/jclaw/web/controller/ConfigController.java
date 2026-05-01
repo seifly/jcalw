@@ -5,12 +5,15 @@ import cn.seifly.jclaw.config.AgentConfig;
 import cn.seifly.jclaw.config.Config;
 import cn.seifly.jclaw.config.ModelsConfig;
 import cn.seifly.jclaw.logger.JClawLogger;
+import cn.seifly.jclaw.security.SecurityGuard;
 import cn.seifly.jclaw.web.WebUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -33,6 +36,9 @@ public class ConfigController {
     
     @Autowired
     private ProvidersController providersController;
+    
+    @Autowired
+    private SecurityGuard securityGuard;
     
     /**
      * 读取当前模型与 Provider 配置
@@ -103,12 +109,14 @@ public class ConfigController {
         
         Map<String, Object> result = new HashMap<>();
         result.put("workspace", agentConfig.getWorkspace());
+        result.put("workspacePath", config.getWorkspacePath());
         result.put("model", agentConfig.getModel());
         result.put("maxTokens", agentConfig.getMaxTokens());
         result.put("temperature", agentConfig.getTemperature());
         result.put("maxToolIterations", agentConfig.getMaxToolIterations());
         result.put("heartbeatEnabled", agentConfig.isHeartbeatEnabled());
         result.put("restrictToWorkspace", agentConfig.isRestrictToWorkspace());
+        result.put("commandBlacklist", agentConfig.getCommandBlacklist());
         
         return ResponseEntity.ok(result);
     }
@@ -139,7 +147,15 @@ public class ConfigController {
             agentConfig.setHeartbeatEnabled((Boolean) request.get("heartbeatEnabled"));
         }
         if (request.containsKey("restrictToWorkspace")) {
-            agentConfig.setRestrictToWorkspace((Boolean) request.get("restrictToWorkspace"));
+            boolean newRestrict = (Boolean) request.get("restrictToWorkspace");
+            agentConfig.setRestrictToWorkspace(newRestrict);
+            securityGuard.updateRestrictToWorkspace(newRestrict);
+        }
+        if (request.containsKey("commandBlacklist")) {
+            @SuppressWarnings("unchecked")
+            List<String> blacklist = (List<String>) request.get("commandBlacklist");
+            agentConfig.setCommandBlacklist(blacklist != null ? blacklist : new ArrayList<>());
+            securityGuard.updateCommandBlacklist(agentConfig.getCommandBlacklist());
         }
         
         WebUtils.saveConfig(config, logger);
