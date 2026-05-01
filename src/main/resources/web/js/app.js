@@ -2566,7 +2566,7 @@ class TinyClawConsole {
     }
 
     async deleteSkill(name) {
-        if (!confirm(`Delete workspace skill "${name}"? This cannot be undone.`)) return;
+        if (!confirm(`删除工作区技能"${name}"？此操作不可撤销。`)) return;
         try {
             const response = await this.authFetch(`/api/skills/${encodeURIComponent(name)}`, {
                 method: 'DELETE'
@@ -2575,7 +2575,7 @@ class TinyClawConsole {
                 await this.loadSkills();
             } else {
                 const err = await response.json();
-                alert('Failed to delete skill: ' + (err.error || response.status));
+                alert('删除技能失败：' + (err.error || response.status));
             }
         } catch (error) {
             console.error('Failed to delete skill:', error);
@@ -2601,40 +2601,40 @@ class TinyClawConsole {
             const servers = data.servers || [];
 
             if (servers.length === 0) {
-                grid.innerHTML = '<p class="empty-state">No MCP servers configured</p>';
+                grid.innerHTML = '<p class="empty-state">未配置MCP服务器</p>';
                 return;
             }
 
             grid.innerHTML = servers.map(s => {
                 const statusBadge = s.enabled
-                    ? '<span class="badge badge-success">Enabled</span>'
-                    : '<span class="badge badge-disabled">Disabled</span>';
+                    ? '<span class="badge badge-success">已启用</span>'
+                    : '<span class="badge badge-disabled">已禁用</span>';
                 const serverType = (s.type || 'sse').toUpperCase();
                 const isStdio = (s.type || 'sse') === 'stdio';
 
                 let connectionInfo = '';
                 if (isStdio) {
-                    const cmdDisplay = s.command || 'Not set';
+                    const cmdDisplay = s.command || '未设置';
                     const argsDisplay = s.args && s.args.length > 0 ? s.args.join(' ') : '';
                     connectionInfo = `
                         <div class="provider-field">
-                            <span class="provider-field-label">Command:</span>
+                            <span class="provider-field-label">命令：</span>
                             <span>${this.escapeHtml(cmdDisplay + (argsDisplay ? ' ' + argsDisplay : ''))}</span>
                         </div>`;
                 } else {
                     const endpointDisplay = s.endpoint
                         ? `<span title="${this.escapeHtml(s.endpoint)}">${this.truncateUrl(s.endpoint)}</span>`
-                        : '<span class="not-set">Not set</span>';
+                        : '<span class="not-set">未设置</span>';
                     const apiKeyDisplay = s.apiKey
                         ? `<span class="masked">${this.escapeHtml(s.apiKey)}</span>`
-                        : '<span class="not-set">Not set</span>';
+                        : '<span class="not-set">未设置</span>';
                     connectionInfo = `
                         <div class="provider-field">
-                            <span class="provider-field-label">Endpoint:</span>
+                            <span class="provider-field-label">端点：</span>
                             ${endpointDisplay}
                         </div>
                         <div class="provider-field">
-                            <span class="provider-field-label">API Key:</span>
+                            <span class="provider-field-label">API密钥：</span>
                             ${apiKeyDisplay}
                         </div>`;
                 }
@@ -2647,18 +2647,18 @@ class TinyClawConsole {
                             ${statusBadge}
                         </div>
                         <div class="card-body">
-                            <p>${this.escapeHtml(s.description) || 'No description'}</p>
+                            <p>${this.escapeHtml(s.description) || '暂无描述'}</p>
                             ${connectionInfo}
                             <div class="provider-field">
-                                <span class="provider-field-label">Timeout:</span>
+                                <span class="provider-field-label">超时：</span>
                                 <span>${s.timeout}ms</span>
                             </div>
                         </div>
                         <div id="mcpTools-${this.escapeHtml(s.name)}" class="mcp-tools-section" style="display:none"></div>
                         <div class="card-footer">
-                            <button class="btn btn-text" onclick="app.testMcpServer('${this.escapeHtml(s.name)}')">🔌 Test</button>
-                            <button class="btn btn-text" onclick="app.showEditMcpServerModal('${this.escapeHtml(s.name)}')">Edit</button>
-                            <button class="btn btn-text btn-danger" onclick="app.deleteMcpServer('${this.escapeHtml(s.name)}')">Delete</button>
+                            <button class="btn btn-text" onclick="app.testMcpServer('${this.escapeHtml(s.name)}')">🔌 测试</button>
+                            <button class="btn btn-text" onclick="app.showEditMcpServerModal('${this.escapeHtml(s.name)}')">编辑</button>
+                            <button class="btn btn-text btn-danger" onclick="app.deleteMcpServer('${this.escapeHtml(s.name)}')">删除</button>
                         </div>
                     </div>
                 `;
