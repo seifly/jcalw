@@ -2472,13 +2472,13 @@ class TinyClawConsole {
         const template = templates[this.currentPersonaFile];
         
         if (!template) {
-            alert('No template available for this file');
+            alert('此文件没有可用的模板');
             return;
         }
         
         const currentContent = document.getElementById('personaEditorContent').value;
         if (currentContent && currentContent.trim()) {
-            if (!confirm('This will replace the current content with the template. Continue?')) {
+            if (!confirm('这将用模板替换当前内容。继续吗？')) {
                 return;
             }
         }
@@ -2496,7 +2496,7 @@ class TinyClawConsole {
             
             const grid = document.getElementById('skillsGrid');
             if (skills.length === 0) {
-                grid.innerHTML = '<p class="empty-state">No skills installed</p>';
+                grid.innerHTML = '<p class="empty-state">未安装技能</p>';
                 return;
             }
             
@@ -2507,13 +2507,13 @@ class TinyClawConsole {
                         <span class="badge badge-outline">${s.source}</span>
                     </div>
                     <div class="card-body">
-                        <p>${s.description || 'No description'}</p>
+                        <p>${s.description || '暂无描述'}</p>
                     </div>
                     <div class="card-footer">
-                        <button class="btn btn-text" onclick="app.viewSkill('${s.name}')">View</button>
+                        <button class="btn btn-text" onclick="app.viewSkill('${s.name}')">查看</button>
                         ${s.source === 'workspace' ? `
-                        <button class="btn btn-text" onclick="app.editSkill('${s.name}')">Edit</button>
-                        <button class="btn btn-text btn-danger" onclick="app.deleteSkill('${s.name}')">Delete</button>
+                        <button class="btn btn-text" onclick="app.editSkill('${s.name}')">编辑</button>
+                        <button class="btn btn-text btn-danger" onclick="app.deleteSkill('${s.name}')">删除</button>
                         ` : ''}
                     </div>
                 </div>
@@ -2528,7 +2528,7 @@ class TinyClawConsole {
             const response = await this.authFetch(`/api/skills/${encodeURIComponent(name)}`);
             const skill = await response.json();
             
-            this.showModal(`Skill: ${name}`, `
+            this.showModal(`技能：${name}`, `
                 <pre style="white-space: pre-wrap; font-size: 13px; background: var(--bg); padding: 16px; border-radius: 8px; max-height: 400px; overflow: auto;">${this.escapeHtml(skill.content)}</pre>
             `, null);
             document.getElementById('modalConfirm').style.display = 'none';
@@ -2542,7 +2542,7 @@ class TinyClawConsole {
             const response = await this.authFetch(`/api/skills/${encodeURIComponent(name)}`);
             const skill = await response.json();
 
-            this.showModal(`Edit Skill: ${name}`, `
+            this.showModal(`编辑技能：${name}`, `
                 <textarea id="editSkillContent" style="width:100%; height:400px; font-family:monospace; font-size:13px; padding:12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); resize:vertical;">${this.escapeHtml(skill.content)}</textarea>
             `, async () => {
                 const content = document.getElementById('editSkillContent').value;
@@ -2555,10 +2555,10 @@ class TinyClawConsole {
                     await this.loadSkills();
                 } else {
                     const err = await saveResp.json();
-                    alert('Failed to save skill: ' + (err.error || saveResp.status));
+                    alert('保存技能失败：' + (err.error || saveResp.status));
                 }
             });
-            document.getElementById('modalConfirm').textContent = 'Save';
+            document.getElementById('modalConfirm').textContent = '保存';
             document.getElementById('modalConfirm').style.display = 'block';
         } catch (error) {
             console.error('Failed to edit skill:', error);
