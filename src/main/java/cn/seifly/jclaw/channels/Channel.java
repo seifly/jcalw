@@ -40,6 +40,13 @@ public interface Channel {
     boolean isAllowed(String senderId);
 
     /**
+     * 设置通道管理器引用。
+     * 由 ChannelManager 在注册通道时调用，使通道能够触发任务中断等操作。
+     */
+    default void setChannelManager(ChannelManager channelManager) {
+    }
+
+    /**
      * 是否支持流式输出。
      *
      * 支持流式的通道可以在 LLM 生成过程中逐步将内容推送给用户，

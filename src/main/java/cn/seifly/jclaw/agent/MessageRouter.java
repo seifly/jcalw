@@ -74,13 +74,17 @@ class MessageRouter {
     // ==================== 指令消息处理 ====================
 
     /**
-     * 路由指令消息（如 /new）。
+     * 路由指令消息（如 /new、/stop）。
      */
     String routeCommand(InboundMessage msg) {
         String command = msg.getCommand();
 
         if (InboundMessage.COMMAND_NEW_SESSION.equals(command)) {
             return handleNewSessionCommand(msg);
+        }
+        
+        if (InboundMessage.COMMAND_STOP.equals(command)) {
+            return handleStopCommand(msg);
         }
 
         logger.warn("Unknown command received", Map.of("command", command));
@@ -103,6 +107,40 @@ class MessageRouter {
                 "sender_id", msg.getSenderId()));
 
         String response = "✨ 新会话已开启，让我们开始新的对话吧！";
+        publishReplyIfNeeded(msg, response);
+        return response;
+    }
+    
+    /**
+     * 处理 /stop 指令：中断当前正在执行的 LLM 任务。
+     */
+    String handleStopCommand(InboundMessage msg) {
+        logger.info("Processing /stop command", Map.of(
+                "channel", msg.getChannel(),
+                "sender_id", msg.getSenderId(),
+                "session_key", msg.getSessionKey()));
+        
+        String response;
+        ProviderComponents comps = providerManager.getComponents();
+        if (comps != null && comps.reActExecutor != null) {
+            if (comps.reActExecutor.isRunning()) {
+                comps.reActExecutor.abort();
+                logger.info("Stop command: abort signal sent to ReActExecutor", Map.of(
+                        "channel", msg.getChannel(),
+                        "session_key", msg.getSessionKey()));
+                response = "⚠️ 已发送中断信号，当前任务将被停止。";
+            } else {
+                logger.info("Stop command: no active task to abort", Map.of(
+                        "channel", msg.getChannel(),
+                        "session_key", msg.getSessionKey()));
+                response = "当前没有正在执行的任务。";
+            }
+        } else {
+            logger.warn("Stop command: ReActExecutor not available", Map.of(
+                    "channel", msg.getChannel()));
+            response = "无法中断任务：系统组件未就绪。";
+        }
+        
         publishReplyIfNeeded(msg, response);
         return response;
     }

@@ -53,10 +53,41 @@ public class ChannelManager {
     private volatile boolean dispatchRunning = false;
     private final List<Thread> dispatchThreads = new ArrayList<>();
     
+    /** 中断当前任务的回调，由 AgentRuntime 设置 */
+    private volatile Runnable abortCurrentTaskCallback;
+    
     public ChannelManager(Config config, MessageBus bus) {
         this.config = config;
         this.bus = bus;
         initChannels();
+    }
+    
+    /**
+     * 设置中断当前任务的回调。
+     * 由 AgentRuntime 在初始化时调用，使 ChannelManager 能够触发任务中断。
+     */
+    public void setAbortCurrentTaskCallback(Runnable callback) {
+        this.abortCurrentTaskCallback = callback;
+    }
+    
+    /**
+     * 中断当前正在执行的 LLM 任务。
+     * 当通道收到 /stop 命令时调用此方法。
+     * 
+     * @return true 表示成功发送中断信号，false 表示回调未设置或无活跃任务
+     */
+    public boolean abortCurrentTask() {
+        if (abortCurrentTaskCallback != null) {
+            try {
+                abortCurrentTaskCallback.run();
+                logger.info("Abort current task callback invoked");
+                return true;
+            } catch (Exception e) {
+                logger.error("Failed to invoke abort current task callback", 
+                        Map.of("error", e.getMessage()));
+            }
+        }
+        return false;
     }
     
     private void initChannels() {
@@ -85,7 +116,7 @@ public class ChannelManager {
                 && !channelsConfig.getTelegram().getToken().isEmpty()) {
             try {
                 Channel telegram = new TelegramChannel(channelsConfig.getTelegram(), bus);
-                channels.put("telegram", telegram);
+                registerChannel("telegram", telegram);
                 logger.info("Telegram channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize Telegram channel", Map.of("error", e.getMessage()));
@@ -102,7 +133,7 @@ public class ChannelManager {
                 && !channelsConfig.getDiscord().getToken().isEmpty()) {
             try {
                 Channel discord = new DiscordChannel(channelsConfig.getDiscord(), bus);
-                channels.put("discord", discord);
+                registerChannel("discord", discord);
                 logger.info("Discord channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize Discord channel", Map.of("error", e.getMessage()));
@@ -119,7 +150,7 @@ public class ChannelManager {
                 && !channelsConfig.getWhatsapp().getBridgeUrl().isEmpty()) {
             try {
                 Channel whatsapp = new WhatsAppChannel(channelsConfig.getWhatsapp(), bus);
-                channels.put("whatsapp", whatsapp);
+                registerChannel("whatsapp", whatsapp);
                 logger.info("WhatsApp channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize WhatsApp channel", Map.of("error", e.getMessage()));
@@ -134,7 +165,7 @@ public class ChannelManager {
         if (channelsConfig.getWechat().isEnabled()) {
             try {
                 Channel wechat = new WechatChannel(config, channelsConfig.getWechat(), bus);
-                channels.put("wechat", wechat);
+                registerChannel("wechat", wechat);
                 logger.info("Wechat channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize Wechat channel", Map.of("error", e.getMessage()));
@@ -149,7 +180,7 @@ public class ChannelManager {
         if (channelsConfig.getFeishu().isEnabled()) {
             try {
                 Channel feishu = new FeishuChannel(channelsConfig.getFeishu(), bus);
-                channels.put("feishu", feishu);
+                registerChannel("feishu", feishu);
                 logger.info("Feishu channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize Feishu channel", Map.of("error", e.getMessage()));
@@ -166,7 +197,7 @@ public class ChannelManager {
                 && !channelsConfig.getDingtalk().getClientId().isEmpty()) {
             try {
                 Channel dingtalk = new DingTalkChannel(channelsConfig.getDingtalk(), bus);
-                channels.put("dingtalk", dingtalk);
+                registerChannel("dingtalk", dingtalk);
                 logger.info("DingTalk channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize DingTalk channel", Map.of("error", e.getMessage()));
@@ -181,7 +212,7 @@ public class ChannelManager {
         if (channelsConfig.getQq().isEnabled()) {
             try {
                 Channel qq = new QQChannel(channelsConfig.getQq(), bus);
-                channels.put("qq", qq);
+                registerChannel("qq", qq);
                 logger.info("QQ channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize QQ channel", Map.of("error", e.getMessage()));
@@ -196,7 +227,7 @@ public class ChannelManager {
         if (channelsConfig.getMaixcam().isEnabled()) {
             try {
                 Channel maixcam = new MaixCamChannel(channelsConfig.getMaixcam(), bus);
-                channels.put("maixcam", maixcam);
+                registerChannel("maixcam", maixcam);
                 logger.info("MaixCam channel enabled successfully");
             } catch (Exception e) {
                 logger.error("Failed to initialize MaixCam channel", Map.of("error", e.getMessage()));
@@ -384,7 +415,7 @@ public class ChannelManager {
         }
 
         WechatChannel wechat = new WechatChannel(config, wechatConfig, bus);
-        channels.put("wechat", wechat);
+        registerChannel("wechat", wechat);
         if (dispatchRunning) {
             startDispatcherForChannel("wechat");
         }
@@ -440,12 +471,14 @@ public class ChannelManager {
      * 注册通道
      * 
      * 动态注册一个新的通道实例，允许在运行时扩展系统功能。
+     * 同时会将 ChannelManager 自身注入到通道中，使通道能够触发任务中断等操作。
      * 
      * @param name 通道名称
      * @param channel 通道实例
      */
     public void registerChannel(String name, Channel channel) {
         channels.put(name, channel);
+        channel.setChannelManager(this);
     }
     
     /**

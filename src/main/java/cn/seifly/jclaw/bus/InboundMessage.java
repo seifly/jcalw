@@ -11,6 +11,9 @@ public class InboundMessage {
 
     /** 指令常量：开启新会话 */
     public static final String COMMAND_NEW_SESSION = "new_session";
+    
+    /** 指令常量：中断当前任务并退出 */
+    public static final String COMMAND_STOP = "stop";
 
     private String channel;
     private String senderId;

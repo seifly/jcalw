@@ -43,11 +43,19 @@ public abstract class BaseChannel implements Channel {
      */
     private final Map<String, String> activeSessionKeys = new ConcurrentHashMap<>();
     
+    /** 通道管理器引用，用于触发任务中断等操作 */
+    private volatile ChannelManager channelManager;
+    
     public BaseChannel(String name, MessageBus bus, List<String> allowList) {
         this.name = name;
         this.bus = bus;
         this.allowList = allowList;
         this.logger = JClawLogger.getLogger("channel." + name);
+    }
+    
+    @Override
+    public void setChannelManager(ChannelManager channelManager) {
+        this.channelManager = channelManager;
     }
     
     @Override
@@ -69,6 +77,7 @@ public abstract class BaseChannel implements Channel {
     }
     
     private static final String COMMAND_NEW = "/new";
+    private static final String COMMAND_STOP = "/stop";
     
     /**
      * 处理传入的消息
@@ -79,6 +88,7 @@ public abstract class BaseChannel implements Channel {
      * <p>支持的指令：
      * <ul>
      *   <li>{@code /new} - 开启新会话，保留旧会话记录，后续消息使用全新的会话上下文</li>
+     *   <li>{@code /stop} - 中断当前正在执行的 LLM 任务，发送中断信号并提前退出</li>
      * </ul>
      * </p>
      *
@@ -91,8 +101,39 @@ public abstract class BaseChannel implements Channel {
             return null;
         }
         
-        // 识别 /new 指令：为该 chatId 生成新的 sessionKey
+        // 识别命令：/new 或 /stop
         String trimmedContent = content != null ? content.trim() : "";
+        
+        // 处理 /stop 命令：中断当前任务
+        if (COMMAND_STOP.equalsIgnoreCase(trimmedContent)) {
+            String sessionKey = activeSessionKeys.getOrDefault(chatId, name + ":" + chatId);
+            
+            logger.info("Received /stop command", Map.of(
+                    "sender_id", senderId, "chat_id", chatId, "session_key", sessionKey));
+            
+            // 直接触发中断（绕过消息总线排队）
+            boolean aborted = false;
+            if (channelManager != null) {
+                aborted = channelManager.abortCurrentTask();
+                if (aborted) {
+                    logger.info("Stop command: abort signal sent directly from channel", Map.of(
+                            "channel", name,
+                            "session_key", sessionKey));
+                }
+            }
+            
+            // 构建消息并发布到总线（用于返回确认消息）
+            InboundMessage msg = new InboundMessage(name, senderId, chatId, trimmedContent);
+            msg.setSessionKey(sessionKey);
+            msg.setCommand(InboundMessage.COMMAND_STOP);
+            if (metadata != null) {
+                msg.setMetadata(metadata);
+            }
+            bus.publishInbound(msg);
+            return msg;
+        }
+        
+        // 处理 /new 命令：为该 chatId 生成新的 sessionKey
         if (COMMAND_NEW.equalsIgnoreCase(trimmedContent)) {
             String newSessionKey = generateNewSessionKey(chatId);
             activeSessionKeys.put(chatId, newSessionKey);

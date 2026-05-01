@@ -49,6 +49,11 @@ public class AgentRuntime {
             "⚠️ LLM Provider 未配置，请通过 Web Console 的 Settings -> Models 页面配置 API Key 后再试。";
     private static final String DEFAULT_EMPTY_RESPONSE = "已完成处理但没有回复内容。";
     private static final int LOG_PREVIEW_LENGTH = 80;
+    
+    /** 命令常量：中断当前任务 */
+    private static final String COMMAND_STOP = "/stop";
+    /** 命令常量：开启新会话 */
+    private static final String COMMAND_NEW = "/new";
 
     /* ---------- 不可变依赖 ---------- */
     private final MessageBus bus;
@@ -136,10 +141,15 @@ public class AgentRuntime {
     /**
      * 注入通道管理器，供 AgentRuntime 在处理消息时查询通道能力（如流式输出支持）。
      * 由 GatewayBootstrap 在初始化完成后调用。
+     * 同时设置中断回调，使通道能够通过 ChannelManager 触发任务中断。
      */
     public void setChannelManager(ChannelManager channelManager) {
         this.channelManager = channelManager;
         this.messageRouter.setChannelManager(channelManager);
+        
+        // 设置中断回调，使通道能够触发任务中断
+        channelManager.setAbortCurrentTaskCallback(this::abortCurrentTask);
+        logger.info("Channel manager configured with abort callback");
     }
 
     // ==================== 生命周期 ====================
@@ -370,6 +380,36 @@ public class AgentRuntime {
 
     /** 同步处理单条消息，适用于 CLI 交互模式。 */
     public String processDirect(String content, String sessionKey) throws Exception {
+        String trimmedContent = content != null ? content.trim() : "";
+        
+        // 处理 /stop 命令：中断当前任务
+        if (COMMAND_STOP.equalsIgnoreCase(trimmedContent)) {
+            logger.info("Received /stop command in processDirect", Map.of(
+                    "session_key", sessionKey));
+            
+            boolean aborted = abortCurrentTask();
+            
+            String response = aborted 
+                    ? "⚠️ 已发送中断信号，当前任务将被停止。" 
+                    : "当前没有正在执行的任务。";
+            
+            logger.info("Stop command processed", Map.of(
+                    "session_key", sessionKey,
+                    "aborted", aborted,
+                    "response", response));
+            
+            return response;
+        }
+        
+        // 处理 /new 命令：开启新会话
+        if (COMMAND_NEW.equalsIgnoreCase(trimmedContent)) {
+            InboundMessage message = new InboundMessage("cli", "user", "direct", content);
+            message.setSessionKey(sessionKey + ":" + System.currentTimeMillis());
+            message.setCommand(InboundMessage.COMMAND_NEW_SESSION);
+            return messageRouter.route(message);
+        }
+        
+        // 普通消息处理
         InboundMessage message = new InboundMessage("cli", "user", "direct", content);
         message.setSessionKey(sessionKey);
         return messageRouter.route(message);
@@ -384,6 +424,44 @@ public class AgentRuntime {
     /** 流式处理单条消息，支持多模态内容（文本+图片）。 */
     public String processDirectStream(String content, List<String> images, String sessionKey,
                                       LLMProvider.StreamCallback callback) throws Exception {
+        String trimmedContent = content != null ? content.trim() : "";
+        
+        // 处理 /stop 命令：中断当前任务
+        if (COMMAND_STOP.equalsIgnoreCase(trimmedContent)) {
+            logger.info("Received /stop command in processDirectStream", Map.of(
+                    "session_key", sessionKey));
+            
+            boolean aborted = abortCurrentTask();
+            
+            String response = aborted 
+                    ? "⚠️ 已发送中断信号，当前任务将被停止。" 
+                    : "当前没有正在执行的任务。";
+            
+            notifyCallback(callback, response);
+            
+            logger.info("Stop command processed in stream mode", Map.of(
+                    "session_key", sessionKey,
+                    "aborted", aborted,
+                    "response", response));
+            
+            return response;
+        }
+        
+        // 处理 /new 命令：开启新会话
+        if (COMMAND_NEW.equalsIgnoreCase(trimmedContent)) {
+            String newSessionKey = sessionKey + ":" + System.currentTimeMillis();
+            sessions.getOrCreate(newSessionKey);
+            
+            logger.info("New session created by /new command in stream mode", Map.of(
+                    "new_session_key", newSessionKey,
+                    "old_session_key", sessionKey));
+            
+            String response = "✨ 新会话已开启，让我们开始新的对话吧！";
+            notifyCallback(callback, response);
+            return response;
+        }
+        
+        // 普通消息处理需要 LLM Provider 配置
         if (!providerManager.isConfigured()) {
             notifyCallback(callback, PROVIDER_NOT_CONFIGURED_MSG);
             return PROVIDER_NOT_CONFIGURED_MSG;
