@@ -17,6 +17,7 @@ public class ChannelsConfig {
     private DingTalkConfig dingtalk;
     private QQConfig qq;
     private MaixCamConfig maixcam;
+    private WeComConfig wecom;
     
     public ChannelsConfig() {
         this.telegram = new TelegramConfig();
@@ -27,6 +28,7 @@ public class ChannelsConfig {
         this.dingtalk = new DingTalkConfig();
         this.qq = new QQConfig();
         this.maixcam = new MaixCamConfig();
+        this.wecom = new WeComConfig();
     }
     
     // Getter 和 Setter 方法
@@ -92,6 +94,14 @@ public class ChannelsConfig {
     
     public void setMaixcam(MaixCamConfig maixcam) {
         this.maixcam = maixcam;
+    }
+
+    public WeComConfig getWecom() {
+        return wecom;
+    }
+
+    public void setWecom(WeComConfig wecom) {
+        this.wecom = wecom;
     }
     
     // 内部配置类
@@ -496,6 +506,60 @@ public class ChannelsConfig {
             return allowFrom;
         }
         
+        public void setAllowFrom(List<String> allowFrom) {
+            this.allowFrom = allowFrom;
+        }
+    }
+
+    public static class WeComConfig {
+        private boolean enabled;
+        private String botId;
+        private String secret;
+        private String dmPolicy;
+        private List<String> allowFrom;
+
+        public WeComConfig() {
+            this.enabled = false;
+            this.dmPolicy = "open";
+            this.allowFrom = new ArrayList<>();
+        }
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getBotId() {
+            return botId;
+        }
+
+        public void setBotId(String botId) {
+            this.botId = botId;
+        }
+
+        public String getSecret() {
+            return secret;
+        }
+
+        public void setSecret(String secret) {
+            this.secret = secret;
+        }
+
+        public String getDmPolicy() {
+            return dmPolicy;
+        }
+
+        public void setDmPolicy(String dmPolicy) {
+            this.dmPolicy = dmPolicy;
+        }
+
+        public List<String> getAllowFrom() {
+            return allowFrom;
+        }
+
         public void setAllowFrom(List<String> allowFrom) {
             this.allowFrom = allowFrom;
         }

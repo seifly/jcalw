@@ -98,7 +98,8 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
             "dashscopeApiKey", config.getProviders().getDashscope() != null && config.getProviders().getDashscope().getApiKey() != null ? 
                 "set (" + config.getProviders().getDashscope().getApiKey().length() + " chars)" : "not set",
             "feishuEnabled", config.getChannels().getFeishu().isEnabled(),
-            "wechatEnabled", config.getChannels().getWechat().isEnabled()
+            "wechatEnabled", config.getChannels().getWechat().isEnabled(),
+            "wecomEnabled", config.getChannels().getWecom().isEnabled()
         ));
     }
     
@@ -111,13 +112,21 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
         String agentProvider = environment.getProperty("jclaw.agent.provider");
         String feishuEnabled = environment.getProperty("jclaw.channels.feishu.enabled");
         String feishuAppId = environment.getProperty("jclaw.channels.feishu.app-id");
+        String wecomEnabled = environment.getProperty("jclaw.channels.wecom.enabled");
+        String wecomBotId = environment.getProperty("jclaw.channels.wecom.bot-id");
+        String wecomCorpId = environment.getProperty("jclaw.channels.wecom.corp-id");
+        String wecomSecret = environment.getProperty("jclaw.channels.wecom.secret");
         
         logger.info("Reading config from application.yml", Map.of(
             "agent.model", agentModel != null ? agentModel : "null",
             "agent.provider", agentProvider != null ? agentProvider : "null",
             "dashscope.api-key", dashscopeApiKey != null ? "set (" + dashscopeApiKey.length() + " chars)" : "null",
             "feishu.enabled", feishuEnabled != null ? feishuEnabled : "null",
-            "feishu.app-id", feishuAppId != null ? feishuAppId : "null"
+            "feishu.app-id", feishuAppId != null ? feishuAppId : "null",
+            "wecom.enabled", wecomEnabled != null ? wecomEnabled : "null",
+            "wecom.bot-id", wecomBotId != null ? wecomBotId : "null",
+            "wecom.corp-id", wecomCorpId != null ? wecomCorpId : "null",
+            "wecom.secret", wecomSecret != null ? "set (" + wecomSecret.length() + " chars)" : "null"
         ));
     }
     
@@ -166,11 +175,13 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
         mergeProvidersConfig(config.getProviders());
         mergeChannelsConfig(config.getChannels());
     }
-    
+
     /**
      * 合并通道配置
      */
     private void mergeChannelsConfig(ChannelsConfig channels) {
+        logger.info("mergeChannelsConfig called", Map.of("channelsNotNull", channels != null));
+        
         // 飞书配置
         mergeFeishuConfig(channels.getFeishu());
         // Telegram 配置
@@ -179,7 +190,11 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
         mergeDiscordConfig(channels.getDiscord());
         // 微信配置
         mergeWechatConfig(channels.getWechat());
+        // 企业微信配置
+        logger.info("About to call mergeWeComConfig");
+        mergeWeComConfig(channels.getWecom());
         // 其他通道...
+        logger.info("mergeChannelsConfig completed");
     }
 
     /**
@@ -200,6 +215,48 @@ public class JClawConfig implements EnvironmentAware, WebMvcConfigurer {
         if (loginTimeoutSeconds != null) {
             wechat.setLoginTimeoutSeconds(loginTimeoutSeconds);
         }
+    }
+
+    /**
+     * 合并企业微信配置
+     */
+    private void mergeWeComConfig(ChannelsConfig.WeComConfig wecom) {
+        logger.debug("Merging WeCom configuration");
+
+        Boolean enabled = getProperty("jclaw.channels.wecom.enabled", Boolean.class);
+        if (enabled != null) {
+            wecom.setEnabled(enabled);
+            logger.debug("WeCom enabled set", Map.of("enabled", enabled));
+        }
+
+        String botId = getProperty("jclaw.channels.wecom.bot-id");
+        if (botId != null) {
+            wecom.setBotId(botId);
+            logger.debug("WeCom botId set", Map.of("botId", botId));
+        }
+
+        String secret = getProperty("jclaw.channels.wecom.secret");
+        if (secret != null) {
+            wecom.setSecret(secret);
+            logger.debug("WeCom secret set", Map.of("hasSecret", true));
+        }
+
+        String dmPolicy = getProperty("jclaw.channels.wecom.dm-policy");
+        if (dmPolicy != null) {
+            wecom.setDmPolicy(dmPolicy);
+            logger.debug("WeCom dmPolicy set", Map.of("dmPolicy", dmPolicy));
+        }
+
+        String allowFromStr = getProperty("jclaw.channels.wecom.allow-from");
+        if (allowFromStr != null && !allowFromStr.isEmpty()) {
+            wecom.setAllowFrom(java.util.Arrays.asList(allowFromStr.split(",")));
+            logger.debug("WeCom allowFrom set", Map.of("allowFrom", allowFromStr));
+        }
+
+        logger.debug("WeCom configuration merge completed", Map.of(
+            "enabled", wecom.isEnabled(),
+            "hasBotId", wecom.getBotId() != null && !wecom.getBotId().isEmpty()
+        ));
     }
     
     /**

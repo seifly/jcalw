@@ -19,12 +19,13 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 
 /**
- * HTTP Webhook Server - 接收钉钉、飞书、QQ 等平台的 Webhook 回调
+ * HTTP Webhook Server - 接收钉钉、飞书、QQ、企业微信等平台的 Webhook 回调
  *
  * 提供以下端点：
  * - POST /webhook/dingtalk  → 钉钉消息回调
  * - POST /webhook/feishu    → 飞书消息回调
  * - POST /webhook/qq        → QQ 消息回调
+ * - POST /webhook/wecom     → 企业微信消息回调
  * - GET  /health            → 健康检查
  *
  * 使用 JDK 内置的 com.sun.net.httpserver.HttpServer，无需额外依赖。
@@ -79,6 +80,7 @@ public class WebhookServer {
         httpServer.createContext("/webhook/dingtalk", this::handleDingTalk);
         httpServer.createContext("/webhook/feishu", this::handleFeishu);
         httpServer.createContext("/webhook/qq", this::handleQQ);
+        httpServer.createContext("/webhook/wecom", this::handleWeCom);
         httpServer.createContext("/health", this::handleHealth);
 
         httpServer.start();
@@ -243,6 +245,22 @@ public class WebhookServer {
         }
 
         sendResponse(exchange, statusCode, responseBody);
+    }
+
+    /**
+     * 处理企业微信 Webhook 回调
+     * 注意：简化的 WeComChannel 仅支持 Bot 模式（WebSocket），不使用 Webhook
+     */
+    private void handleWeCom(HttpExchange exchange) throws IOException {
+        if (!requirePost(exchange)) {
+            return;
+        }
+
+        String requestBody = readRequestBodyLimited(exchange);
+        logger.debug("收到企业微信 Webhook 回调（Bot 模式不使用此回调）", Map.of("body_length", requestBody.length()));
+
+        String responseBody = "{\"errcode\":0,\"errmsg\":\"ok\"}";
+        sendResponse(exchange, 200, responseBody);
     }
 
     /**

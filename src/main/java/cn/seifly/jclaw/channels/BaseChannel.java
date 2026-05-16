@@ -73,6 +73,9 @@ public abstract class BaseChannel implements Channel {
         if (allowList == null || allowList.isEmpty()) {
             return true;
         }
+        if (allowList.contains("*")) {
+            return true;
+        }
         return allowList.contains(senderId);
     }
     

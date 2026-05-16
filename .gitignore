@@ -1,3 +1,4 @@
+.gitee
 target/
 !.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
@@ -11,7 +12,7 @@ dependency-reduced-pom.xml
 *.ipr
 *.class
 .jimi
-
+.github
 ### Eclipse ###
 .apt_generated
 .classpath

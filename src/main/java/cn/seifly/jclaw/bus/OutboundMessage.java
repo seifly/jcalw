@@ -1,6 +1,8 @@
 package cn.seifly.jclaw.bus;
 
 import java.time.Instant;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 发送到外部通道的出站消息
@@ -37,6 +39,11 @@ public class OutboundMessage {
      * 消息创建时间戳，用于链路追踪和超时判断
      */
     private final Instant createdAt = Instant.now();
+
+    /**
+     * 元数据，用于传递通道特定的信息（如群组 ID 等）
+     */
+    private Map<String, String> metadata;
 
     public OutboundMessage() {
     }
@@ -104,6 +111,25 @@ public class OutboundMessage {
 
     public Instant getCreatedAt() {
         return createdAt;
+    }
+
+    public Map<String, String> getMetadata() {
+        return metadata;
+    }
+
+    public void setMetadata(Map<String, String> metadata) {
+        this.metadata = metadata;
+    }
+
+    public String getMetadata(String key) {
+        return metadata != null ? metadata.get(key) : null;
+    }
+
+    public void putMetadata(String key, String value) {
+        if (this.metadata == null) {
+            this.metadata = new HashMap<>();
+        }
+        this.metadata.put(key, value);
     }
 
     @Override

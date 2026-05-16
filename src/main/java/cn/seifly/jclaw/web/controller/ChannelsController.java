@@ -2,6 +2,7 @@ package cn.seifly.jclaw.web.controller;
 
 import cn.seifly.jclaw.channels.Channel;
 import cn.seifly.jclaw.channels.ChannelManager;
+import cn.seifly.jclaw.channels.QQChannel;
 import cn.seifly.jclaw.channels.WechatChannel;
 import cn.seifly.jclaw.config.ChannelsConfig;
 import cn.seifly.jclaw.config.Config;
@@ -52,6 +53,7 @@ public class ChannelsController {
         addChannelInfo(channels, "dingtalk", cc.getDingtalk().isEnabled());
         addChannelInfo(channels, "qq", cc.getQq().isEnabled());
         addChannelInfo(channels, "maixcam", cc.getMaixcam().isEnabled());
+        addChannelInfo(channels, "wecom", cc.getWecom().isEnabled());
         
         return ResponseEntity.ok(channels);
     }
@@ -232,7 +234,70 @@ public class ChannelsController {
         status.put("error", "微信通道不可用");
         return ResponseEntity.ok(status);
     }
-    
+
+    /**
+     * QQ 消息接收 Webhook 端点
+     * <p>
+     * 外部 QQ 网关服务可以通过此端点将接收到的消息转发给 jclaw。
+     * 网关需要将 QQ 平台的消息转换为 JSON 格式并 POST 到此端点。
+     * </p>
+     * 
+     * @param messageJson QQ 消息的 JSON 字符串
+     * @return 处理结果
+     */
+    @PostMapping("/qq/webhook")
+    public ResponseEntity<Map<String, Object>> receiveQQMessage(@RequestBody String messageJson) {
+        Map<String, Object> result = new HashMap<>();
+        
+        if (channelManager == null) {
+            logger.error("Channel manager not available, cannot process QQ message");
+            result.put("success", false);
+            result.put("error", "Channel manager not available");
+            return ResponseEntity.status(503).body(result);
+        }
+        
+        Channel channel = channelManager.getChannel("qq").orElse(null);
+        
+        if (!(channel instanceof QQChannel qqChannel)) {
+            logger.error("QQ channel not available or not running");
+            result.put("success", false);
+            result.put("error", "QQ channel not available");
+            return ResponseEntity.status(503).body(result);
+        }
+        
+        if (!qqChannel.isRunning()) {
+            logger.error("QQ channel is not running");
+            result.put("success", false);
+            result.put("error", "QQ channel is not running");
+            return ResponseEntity.status(503).body(result);
+        }
+        
+        try {
+            logger.info("收到 QQ 网关转发的消息", Map.of(
+                "json_length", messageJson != null ? messageJson.length() : 0,
+                "json_preview", messageJson != null ? messageJson.substring(0, Math.min(100, messageJson.length())) : "null"
+            ));
+            
+            // 调用 QQChannel 处理消息
+            qqChannel.handleIncomingMessage(messageJson);
+            
+            result.put("success", true);
+            result.put("message", "Message processed");
+            logger.info("QQ 消息已成功处理");
+            
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            logger.error("处理 QQ 消息时出错", Map.of(
+                "error", e.getMessage(),
+                "error_type", e.getClass().getSimpleName()
+            ));
+            
+            result.put("success", false);
+            result.put("error", "Failed to process message: " + e.getMessage());
+            return ResponseEntity.status(500).body(result);
+        }
+    }
+
     // ==================== 私有辅助方法 ====================
     
     /**
@@ -325,6 +390,14 @@ public class ChannelsController {
                 detail.put("allowFrom", cc.getMaixcam().getAllowFrom());
                 yield detail;
             }
+            case "wecom" -> {
+                detail.put("enabled", cc.getWecom().isEnabled());
+                detail.put("botId", cc.getWecom().getBotId());
+                detail.put("secret", WebUtils.maskSecret(cc.getWecom().getSecret()));
+                detail.put("dmPolicy", cc.getWecom().getDmPolicy());
+                detail.put("allowFrom", cc.getWecom().getAllowFrom());
+                yield detail;
+            }
             default -> null;
         };
     }
@@ -345,6 +418,7 @@ public class ChannelsController {
             case "qq" -> { updateQQConfig(cc, request); yield true; }
             case "whatsapp" -> { updateWhatsappConfig(cc, request); yield true; }
             case "maixcam" -> { updateMaixcamConfig(cc, request); yield true; }
+            case "wecom" -> { updateWeComConfig(cc, request); yield true; }
             default -> false;
         };
     }
@@ -523,6 +597,30 @@ public class ChannelsController {
             @SuppressWarnings("unchecked")
             List<String> allowFrom = (List<String>) request.get("allowFrom");
             cc.getMaixcam().setAllowFrom(allowFrom);
+        }
+    }
+
+    /** 更新企业微信配置：所有字段。 */
+    private void updateWeComConfig(ChannelsConfig cc, Map<String, Object> request) {
+        if (request.containsKey("enabled")) {
+            cc.getWecom().setEnabled((Boolean) request.get("enabled"));
+        }
+        if (request.containsKey("botId")) {
+            cc.getWecom().setBotId((String) request.get("botId"));
+        }
+        if (request.containsKey("secret")) {
+            String secret = (String) request.get("secret");
+            if (!WebUtils.isSecretMasked(secret)) {
+                cc.getWecom().setSecret(secret);
+            }
+        }
+        if (request.containsKey("dmPolicy")) {
+            cc.getWecom().setDmPolicy((String) request.get("dmPolicy"));
+        }
+        if (request.containsKey("allowFrom")) {
+            @SuppressWarnings("unchecked")
+            List<String> allowFrom = (List<String>) request.get("allowFrom");
+            cc.getWecom().setAllowFrom(allowFrom);
         }
     }
 

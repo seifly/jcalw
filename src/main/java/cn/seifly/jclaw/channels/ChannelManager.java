@@ -7,11 +7,7 @@ import cn.seifly.jclaw.config.ChannelsConfig;
 import cn.seifly.jclaw.config.Config;
 import cn.seifly.jclaw.logger.JClawLogger;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -103,6 +99,7 @@ public class ChannelManager {
         initDingTalkChannel(channelsConfig);
         initQQChannel(channelsConfig);
         initMaixCamChannel(channelsConfig);
+        initWeComChannel(channelsConfig);
         
         logger.info("Channel initialization completed", Map.of("enabled_channels", channels.size()));
     }
@@ -209,14 +206,43 @@ public class ChannelManager {
      * 初始化 QQ 通道
      */
     private void initQQChannel(ChannelsConfig channelsConfig) {
-        if (channelsConfig.getQq().isEnabled()) {
-            try {
-                Channel qq = new QQChannel(channelsConfig.getQq(), bus);
-                registerChannel("qq", qq);
-                logger.info("QQ channel enabled successfully");
-            } catch (Exception e) {
-                logger.error("Failed to initialize QQ channel", Map.of("error", e.getMessage()));
-            }
+        logger.info("检查 QQ 通道配置...");
+        
+        boolean isEnabled = channelsConfig.getQq().isEnabled();
+        String appId = channelsConfig.getQq().getAppId();
+        String appSecret = channelsConfig.getQq().getAppSecret();
+        
+        logger.info("QQ 通道配置状态", Map.of(
+            "enabled", isEnabled,
+            "app_id_present", appId != null && !appId.isEmpty(),
+            "app_secret_present", appSecret != null && !appSecret.isEmpty()
+        ));
+        
+        if (!isEnabled) {
+            logger.info("QQ 通道未启用，跳过初始化");
+            return;
+        }
+        
+        if (appId == null || appId.isEmpty()) {
+            logger.error("QQ 通道已启用但 App ID 为空，无法初始化");
+            return;
+        }
+        
+        if (appSecret == null || appSecret.isEmpty()) {
+            logger.error("QQ 通道已启用但 App Secret 为空，无法初始化");
+            return;
+        }
+        
+        try {
+            logger.info("正在初始化 QQ 通道...", Map.of("app_id", appId.substring(0, Math.min(8, appId.length())) + "***"));
+            Channel qq = new QQChannel(channelsConfig.getQq(), bus);
+            registerChannel("qq", qq);
+            logger.info("QQ channel enabled successfully", Map.of("channel", "qq"));
+        } catch (Exception e) {
+            logger.error("Failed to initialize QQ channel", Map.of(
+                "error", e.getMessage(),
+                "error_type", e.getClass().getSimpleName()
+            ));
         }
     }
     
@@ -232,6 +258,45 @@ public class ChannelManager {
             } catch (Exception e) {
                 logger.error("Failed to initialize MaixCam channel", Map.of("error", e.getMessage()));
             }
+        }
+    }
+
+    /**
+     * 初始化企业微信通道
+     */
+    private void initWeComChannel(ChannelsConfig channelsConfig) {
+        logger.debug("Checking WeCom channel configuration", Map.of(
+            "enabled", channelsConfig.getWecom().isEnabled()
+        ));
+        
+        if (!channelsConfig.getWecom().isEnabled()) {
+            return;
+        }
+
+        ChannelsConfig.WeComConfig wecomConfig = channelsConfig.getWecom();
+        
+        logger.info("WeCom channel enabled, checking configuration", Map.of(
+            "hasBotId", wecomConfig.getBotId() != null && !wecomConfig.getBotId().isEmpty(),
+            "hasSecret", wecomConfig.getSecret() != null && !wecomConfig.getSecret().isEmpty()
+        ));
+
+        // Bot 模式：只需要 botId + secret 即可
+        boolean hasBotConfig = wecomConfig.getBotId() != null && !wecomConfig.getBotId().isEmpty()
+                && wecomConfig.getSecret() != null && !wecomConfig.getSecret().isEmpty();
+
+        if (!hasBotConfig) {
+            logger.warn("WeCom channel enabled but not configured properly. Need botId+secret for Bot mode, or corpId+secret+token+encodingAesKey for Agent mode");
+            return;
+        }
+
+        try {
+            Channel wecom = new WeComChannel(wecomConfig, bus);
+            registerChannel("wecom", wecom);
+            logger.info("WeCom channel enabled successfully", Map.of(
+                "mode", hasBotConfig ? "bot" : "agent"
+            ));
+        } catch (Exception e) {
+            logger.error("Failed to initialize WeCom channel", Map.of("error", e.getMessage()));
         }
     }
     

@@ -1552,6 +1552,13 @@ class TinyClawConsole {
                     <div class="form-group"><label>App ID</label><input class="form-control" id="modalAppId" value="${ch.appId || ''}"></div>
                     <div class="form-group"><label>App Secret</label><input class="form-control" id="modalAppSecret" value="${ch.appSecret || ''}"></div>
                 `;
+            case 'wecom':
+                return `
+                    <div class="form-group"><label>Bot ID</label><input class="form-control" id="modalBotId" value="${ch.botId || ''}"></div>
+                    <div class="form-group"><label>Secret</label><input class="form-control" id="modalSecret" value="${ch.secret || ''}"></div>
+                    <div class="form-group"><label>Dm Policy</label><input class="form-control" id="modalDmPolicy" value="${ch.dmPolicy || 'open'}"></div>
+                    <div class="form-group"><label>Allow From (逗号分隔)</label><input class="form-control" id="modalAllowFrom" value="${(ch.allowFrom || []).join(', ')}"></div>
+                `;
             case 'wechat':
                 return `
                     <div class="form-group" style="display:none">
@@ -1589,6 +1596,12 @@ class TinyClawConsole {
             case 'qq':
                 data.appId = document.getElementById('modalAppId').value;
                 data.appSecret = document.getElementById('modalAppSecret').value;
+                break;
+            case 'wecom':
+                data.botId = document.getElementById('modalBotId').value;
+                data.secret = document.getElementById('modalSecret').value;
+                data.dmPolicy = document.getElementById('modalDmPolicy').value;
+                data.allowFrom = document.getElementById('modalAllowFrom').value.split(',').map(s => s.trim()).filter(s => s);
                 break;
             case 'wechat':
                 data.pollIntervalMs = Number(document.getElementById('modalPollIntervalMs').value || 1000);
